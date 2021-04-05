@@ -1,0 +1,913 @@
+---
+jupyter:
+  jupytext:
+    notebook_metadata_filter: all,-language_info
+    split_at_heading: true
+    text_representation:
+      extension: .Rmd
+      format_name: rmarkdown
+      format_version: '1.2'
+      jupytext_version: 1.8.2
+  kernelspec:
+    display_name: Python 3
+    language: python
+    name: python3
+---
+
+# Logistic Regression
+
+```{python tags=c("hide-cell")}
+import numpy as np
+import pandas as pd
+# Safe settings for Pandas.
+pd.set_option('mode.chained_assignment', 'raise')
+# %matplotlib inline
+import matplotlib.pyplot as plt
+# Make the plots look more fancy.
+plt.style.use('fivethirtyeight')
+```
+
+By Peter Rush and Matthew Brett, with considerable inspiration from the
+logistic regression section of Allen Downey's book [Think Stats, second
+edition](https://greenteapress.com/thinkstats2).
+
+In this section we will look at another regression technique: logistic
+regression.
+
+We use logistic regression when we want to predict a *binary categorical*
+outcome variable (or column) from one or more predicting variables (or
+columns).
+
+A binary categorical variable is one where an observation can fall into one of
+only two categories. We give each observation a label corresponding to their
+category.  Some examples are:
+
+* Did a patient die or did they survive through 6 months of treatment?  The
+  patient can only be in only one of the categories.  In some column of our
+  data table, patients that died might have the label "died", and those who
+  have survived have the label "survived".
+* Did a person experience more than one episode of psychosis in the last 5
+  years ("yes" or "no")?
+* Did a person with a conviction for one offense offend again ("yes" or "no")?
+
+For this tutorial, we return to the [chronic kidney disease
+dataset](../data/chronic_kidney_disease).
+
+Each row in this dataset represents one patient.
+
+For each patient, the doctors recorded whether or not the patient had chronic
+kidney disease. This is a *binary categorical variable*; you can see the
+values in the "Class" column. A value of 1 means the patient *did* have CKD; a
+value of 0 means they *did not*.  In this case we are labeling the categories
+with numbers (1 / 0).
+
+Many of the rest of the columns are measurements from blood tests and urine tests.
+
+```{python}
+df = pd.read_csv('ckd_clean.csv')
+df.head()
+```
+
+There are actually a large number of binary categorical variables in this dataset. The cell below shows the unique values which are in each column of the dataframe which contains labels (strings, rather than numbers).
+
+In each of these columns, the observations fall into one of two classes, so they are binary categorical variables. The printout below shows these variables, and the two values they can each take.
+
+```{python}
+# do not worry about this code, it just generates the printout below
+
+for i in df.columns[np.where(df.dtypes == 'object')]:
+    
+    print('\nUnique values in the', i, 'column:')
+    print(df[i].unique())
+```
+
+Let's say we are interested in the relationship between Red Blood Cell Count and whether a patient has anemia or not.
+
+Let's have a look at just the two columns we are interested in.
+
+```{python}
+red_blood_anemia = df.loc[:, ['Hemoglobin', 'Appetite']].copy()
+
+red_blood_anemia
+```
+
+## Dummy Variables
+
+For logistic regression, instead of using labels like 'no' or 'yes' we use <i> dummy variables. </i>
+
+This means we will use the number 1 to represent one of the labels, and the number 0 to represent the other label. 
+
+We can use `np.where` to create dummy variables; this is shown in the cell below.
+
+<i> Note: </i> when you are doing this, be sure to keep track of which label you have coded as 1. Normally this would be the more interesting outcome (in this case, 'Yes' is coded as 1). Keep track of it, as it will affect the interpretation of the regression coefficients.
+
+```{python}
+anemia_dummy = np.where(red_blood_anemia ['Appetite'] == 'yes', 1, 0) # 1 where Anemia == 'yes'
+                                                                      # 0 where Anemia == 'no'
+
+anemia_dummy
+```
+
+Let's add the dummy variable to the `red_blood_anemia` dataframe.
+
+```{python}
+red_blood_anemia['Anemia_dummy'] = anemia_dummy
+
+red_blood_anemia
+```
+
+Now we have the dummy variable, let's use a scatter plot visualise the relationship between Reb Blood Cell Count and whether a patient has anemia:
+
+```{python}
+# do not worry about this code, it just generates the graph
+
+plt.figure(figsize = (10, 4))
+plt.scatter(red_blood_anemia['Hemoglobin'], red_blood_anemia['Anemia_dummy'], label = 'not anemic')
+plt.scatter(red_blood_anemia[red_blood_anemia['Appetite'] == 'yes']['Hemoglobin'], 
+                             red_blood_anemia[red_blood_anemia['Appetite'] == 'yes']['Anemia_dummy'], color = 'red',
+            label = 'anemic')
+plt.xlabel('Hemoglobin')
+plt.ylabel('Anemia \n(0 = no, 1 = yes)')
+plt.legend()
+plt.yticks([0,1]);
+```
+
+<!-- #region -->
+From graphical inspection, it does look like these variables (perhaps unsurprisingly!) are related.
+
+We can see that patients with anemia have lower red blood cell counts.
+
+## Probability and Odds
+
+For logistic regression, in contrast to linear regression, we are interested in predicting the <i> probability of an observation falling into a particular outcome class, </i> rather than predicting the numerical value of the outcome score. 
+
+In this case, we are interested in the probability of a patient having anemia, predicted from the patient's Red Blood Cell Count. 
+
+From the graph above, it looks as those there is a higher probability of having anemia if you have a lower Red Blood Cell Count. We can see this because a higher proportion of the red dots (representing patients with anemia) occur at lower values of Red Blood Cell Count.
+
+You'll know that probability is:
+
+$$ \frac{\text{number of events of interest}}{\text{total number of events}} $$
+<!-- #endregion -->
+
+If we want to know how many people have anemia out of a group of 100 people, the probability of having anemia is:
+
+$$ \frac{\text{number of people with anemia}}{\text{total number of people}} $$
+
+
+So if there are 100 people, and 30 of them have anemia, the probability of having anemia (in that group) is:
+
+$$ \frac{\text{number of people with anemia}}{\text{total number of people}} = \frac{\text{30}}{\text{100}}  $$
+
+
+The odds of an event is a related, but different, concept. The odds are:
+
+$$ \frac{\text{number of events of interest}}{\text{number of events NOT of interest}} $$
+
+
+If we want to know how many people have anemia out of 100 people, the odds are:
+
+$$ \frac{\text{number of people WITH anemia}}{\text{number of people who WITHOUT anemia}} $$
+
+
+So if there are 100 people, and 30 of them have anemia, the odds of having anemia (in that group) are:
+    
+$$ \frac{\text{number of people WITH anemia}}{\text{number of people WITHOUT anemia}} = \frac{\text{30}}{\text{70}}  $$
+
+## Why not just use linear regression?
+
+Remember that in linear regression, we predict scores on the outcome variable directly. So if we were predicting peoples' weight from their height, our final prediction would be a specific value of weight. We might predict that if someone is X cm tall, they will weigh Y kg.
+
+In logistic regression, our final prediction is a probability of falling into a specific class (specifically, it is the probability of falling into the class we have dummy coded as '1'). 
+
+In our current case, if someone has a Red Blood Cell Count of X, we can use logistic regression to predict that they have Y% probability of having anemia. 
+
+Earlier in the textbook, we performed linear regression by using `minimize`, to find the value of the slope and intercept of the line which gives the smallest sum of the squared prediction errors. 
+
+Recall that in linear regression:
+
+$$ \text{prediction} = intercept + slope * \text{predictor_variable} $$
+
+Remember that the 'prediction' and 'predictor variable' are collections, with one value for each observation in the dataset. So if you have 200 observations, there will be 200 scores on the predictor variable, and 200 predictons. By contrast, the slope and intercept are single values.
+
+We use `minimize` to find the values of the slope and intercept which give the best predictions. That is, the values of the slope and intercept which give the smallest sum of the squared prediction errors.
+
+$$ \text{prediction error} = \text{actual value - prediction} $$
+
+
+What would happen if we tried to use linear regression to predict the probability of having anemia, based on Red Blood Cell Count?
+    
+Let's grab the `sos_error_for_minimize` function from the 'Using minizmize' page (https://matthew-brett.github.io/cfd2020/mean-slopes/using_minimize.html), but adapt it for the current example.
+
+```{python}
+def sos_error_for_minimize(intercept_and_slope):
+    
+    # intercept_and_slope is a list containing two elements, an intercept and a slope.
+    
+    # store the intercept as a python variable
+    intercept = intercept_and_slope[0]
+    
+    # store the slope as a python variable
+    slope = intercept_and_slope[1]
+    
+    # generate the predicted anemia probabilities, using the slope and intercept
+    predicted = intercept + slope * red_blood_anemia['Hemoglobin']
+    
+    # calculate the prediction error
+    error = red_blood_anemia['Anemia_dummy'] - predicted
+    
+    # return the sum of the squared prediction error
+    return np.sum(error ** 2)
+```
+
+The sum of squared prediction error, in linear regression, is our <i> cost </i> function. We want this function to be <i> cheap </i> i.e. we want its value to be small. 
+
+If it is large, it means the line we are fitting does not fit the data well at all. The purpose of linear regression is to find the line which leads to the smallest sum of squared prediction errors.
+
+Let's use linear regression on the current example:
+
+```{python}
+from scipy.optimize import minimize
+
+min_lin_reg = minimize(sos_error_for_minimize, [1, 1])
+min_lin_reg
+```
+
+Ok, so that looks hopeful. Using linear regression with `minimize` we found that the sum of squared prediction errors was smallest for a line with an intercept of 0.94590155 and a slope of -0.17266457.
+
+Let's get those values, store them as separate variables, and use them to predict the probability of having anemia.
+
+The linear regression model we are using here is:
+
+$$ \text{predicted probability of anemia} = intercept + slope * \text{Red Blood Cell Count} $$
+
+```{python}
+# get the first element of the .x attribute of minimize (this is in the intercept)
+lin_reg_intercept = min_lin_reg.x[0]
+
+# get the second element of the .x attribute of minimize (this is in the slope)
+lin_reg_slope = min_lin_reg.x[1]
+
+# use the linear regression formula to generate the predicted probability of having anemia, one probability for each patient
+predictions_lin_reg = lin_reg_intercept + lin_reg_slope * red_blood_anemia['Hemoglobin']
+```
+
+Let's plot our predictions, alongside the actual data. The predictions, from linear regression, are shown in orange.
+
+```{python}
+# do not worry about this code, it just generates the graph
+
+plt.figure(figsize = (10, 4))
+plt.scatter(red_blood_anemia['Hemoglobin'], red_blood_anemia['Anemia_dummy'], label = 'not anemic')
+plt.scatter(red_blood_anemia[red_blood_anemia['Appetite'] == 'yes']['Hemoglobin'], 
+                             red_blood_anemia[red_blood_anemia['Appetite'] == 'yes']['Anemia_dummy'], color = 'red',
+            label = 'anemic')
+plt.scatter(red_blood_anemia['Hemoglobin'], predictions_lin_reg, 
+            label = 'predictions from linear regression', color = 'orange')
+plt.xlabel('Hemoglobin')
+plt.ylabel('Anemia \n(0 = no, 1 = yes)')
+plt.legend()
+plt.yticks([0,1]);
+```
+
+<!-- #region -->
+Oh dear, what a mess.
+
+It looks like the predictions are getting it right that the probability of having anemia is higher at lower values of Red Blood Cell Count. 
+
+The prediction line slopes downward as Red Blood Cell Count gets higher, indicating that the probability of anemia gets lower as the Red Blood Cell Count gets higher. 
+
+However, as Red Blood Cell Count gets higher than about 5.4, linear regression starts to predict a negative probability of anemia. 
+
+For the Anemia variable, the values of the variable itself (the dummy codes 0 or 1), and the probability of being in either class, are both restricted to being between 0 or 1. 
+
+Linear regression will not work here, as its predictions are <b> not </b> limited to being between 0 and 1.
+
+# The Logistic Transformation
+
+What we need is some mathematical wizardry that will allow us to use the linear regression formula, but to only generate predicted values that fall between 0 and 1. This prediction should represent the probability, based on the predictor variable, of being in the outcome class we dummy coded as 1.
+
+It turns out there is a way to do this. Though bizarre it may sound, we will need the number `e` (https://en.wikipedia.org/wiki/E_(mathematical_constant).
+
+This number is represented in numpy, and can be called using the command below.
+<!-- #endregion -->
+
+```{python}
+np.e
+```
+
+We can use the linear regression formula, along with `e`, to predict the odds of being anemic. The formula is below - let's focus on <i> how the formula works </i> rather than <i> why </i> the formula works .
+    
+$$ \text{predicted odds of anemia} = e^{\text{intercept + slope * Red Blood Cell Count}} $$
+
+OK, so far so good, we raise `e` to the power of our linear regression predictions and we get a prediction of the odds of anemia for each observation. But there is still a problem - these odds are not limited to fall between 0 and 1:
+
+```{python}
+odds_anemia = np.e**predictions_lin_reg
+
+odds_anemia
+```
+
+Fortunately, through some further mathematical wizardry, we can convert these odds to probabilities (which do fall between 0 and 1). The formula for doing this is below. 
+
+Again, let's focus on what the formula does and how it works, rather than why it works:
+
+$$ \text{predicted probability of anemia} = \frac{e^{\text{intercept + slope * Red Blood Cell Count}}}{1 + e^{\text{intercept + slope * Red Blood Cell Count}}}  $$
+
+Let's use that formula to get the predicted probabilities.
+
+```{python}
+prob_anemia = odds_anemia/(1 + odds_anemia)
+
+prob_anemia
+```
+
+Let's just check the predicted probabilities do all, in fact, fall between 0 and 1:
+
+```{python}
+print('There are', np.count_nonzero(prob_anemia < 0), 'predicted probabilities less than 0.')  
+print('There are', np.count_nonzero(prob_anemia > 1), 'predicted probabilities greater than 1.')  
+```
+
+Let's plot these predicted probabilities along with the actual data:
+
+```{python}
+# do not worry about this code, it just generates the graph
+plt.figure(figsize = (10, 4))
+plt.scatter(red_blood_anemia['Hemoglobin'], red_blood_anemia['Anemia_dummy'], label = 'not anemic')
+plt.scatter(red_blood_anemia[red_blood_anemia['Appetite'] == 'yes']['Hemoglobin'], 
+                             red_blood_anemia[red_blood_anemia['Appetite'] == 'yes']['Anemia_dummy'], color = 'red',
+            label = 'anemic')
+plt.scatter(red_blood_anemia['Hemoglobin'], prob_anemia, 
+            label = 'predicted probability of anemia', color = 'orange')
+plt.xlabel('Hemoglobin')
+plt.ylabel('Anemia \n(0 = no, 1 = yes)')
+plt.legend()
+plt.yticks([0,0.5, 1]);
+```
+
+<!-- #region -->
+That looks better, the predicted probabilities all fall between 0 and 1. And the predictions still capture the general trend that the probability of having anemia is higher at lower values of Red Blood Cell Count.
+
+However, to get these probabilities we used the slope and intercept we obtained from linear regression i.e. from minimizing the sum of squared prediction errors.
+
+Using the sum of squared prediction error as the function we minimize is <b> not a good idea when we are trying to predict probabilities. </b>
+
+To work well, `minimize` needs to work on a function which is <i> convex </i>. This is best illustrated graphically.
+
+On the graphs below, the sum of squared prediction error is shown on the y axis. The potential values of the slope we may include in our model are shown on the x axis.
+
+The graph for linear regression is shown on the left; the graph for logistic regression is shown on the right.
+
+For normal linear regression - i.e. without using `e` to do the transformations we just did - there is a single lowest point on the graph which shows the relationship between the slope value (x axis) and the sum of squared prediction error (y axis). 
+
+This lowest point occurs for the best fitting slope. `minimize` can easily find this point, because it is the lowest point out of all the possible slopes we could use.
+
+
+Conversely, when we use `e` to apply the transformations above (in order to predict probabilities), the graph for the sum of squared prediction errors looks like the graph on the right hand side below. 
+
+`minimize` can easily get 'stuck' in one of the other low points, which is not the lowest possible point. This means we may get estimates of the slope and intercept which do not give the lowest possible sum of the squared prediction error.
+<!-- #endregion -->
+
+![image-3.png](attachment:image-3.png)
+
+(image adapted from: 
+https://medium.com/analytics-vidhya/derivative-of-log-loss-function-for-logistic-regression-9b832f025c2d)
+
+<!-- #region -->
+## A different measure of prediction error
+
+To address this issue, logistic regression does not minimize the sum of the squared prediction errors like linear regression does. 
+
+Logistic regression uses a different function for calculating prediction errors, and it minimizes this function instead. Another way of saying this is that it minimizes a different cost function.
+
+The cost function that logistic regression uses is convex - meaning it works much better with minimize, as it has a single lowest point.
+
+To understand the function logistic regression uses to calculate prediction errors, we will need to do a very brief aside about <i> natural logarithms </i>.
+
+#### Natural Logarithms
+
+The natural logarithm of a number tells you: "what power would I have to raise `e` to, in order to produce this number?".
+
+This sounds more complex than it is. 
+
+`e` squared equals 7.3890560989306495, as we can see from the cell below:
+<!-- #endregion -->
+
+```{python}
+np.e**2
+```
+
+If I asked you, now you've seen the cell above: "what number would I have to raise `e` to, in order to get 7.3890560989306495?".
+
+If you're really good at remembering decimal places, you'd say: "well, `e` squared equals 7.3890560989306495. So you raise `e` to the power of 2 to get 7.3890560989306495".
+
+Another way of saying this is that the natural log of 7.3890560989306495 is 2. 
+
+We can represent this with a formula:
+
+$$ ln(7.3890560989306495) = 2 $$
+
+`ln(7.3890560989306495)` means 'the natural log of 7.3890560989306495'. We can use `np.log()` to calculate the natural logarithm of a number.
+
+```{python}
+np.log(7.3890560989306495)
+```
+
+In logistic regression, we calculate the prediction errors are follows:
+
+If the dummy variable of the actual outcome score equals 1, then the prediction error equals the negative natural logarithm of the predicted probability:
+
+ $$ \text{if the actual outcome == 1, then:}$$
+ $$\text{prediction error = -ln(predicted probability)} $$
+
+If the dummy variable of the actual outcome score equals 0, then the prediction error equals the negative natural logarithm of 1 minus the predicted probability.
+
+ $$ \text{if the actual outcome == 0, then:}$$
+ $$\text{prediction error = -ln(1 - predicted probability)} $$
+
+Again, this looks more complex than it is (I promise!). Once more, it is better to focus on how this calculation works, rather than why it works.
+
+The table below shows some possible pairings of the actual outcome and predicted outcome. The predicted outcome is a probability, it is the predicted probability that an observations falls into the class with the dummy variable 1:
+
+```{python}
+# this is just here to generate the illustration
+
+illustration = pd.DataFrame({'actual outcome': [0, 1, 0, 1], 'predicted probability of being in class 1': [0.2, 0.8, 0.8,0.2],
+                           'prediction close?': ['yes', 'yes', 'no', 'no']})
+
+illustration
+```
+
+Let's write a python function to calculate the prediction errors for logistic regression. 
+
+This is called a <i> piecewise function, </i> because what the function does varies depending on what input it is given. In python, we can do this with `if` statements:
+
+```{python}
+def log_reg_pred_err(actual_outcome, predicted_probability):
+    
+    # create an array to store the prediction errors
+    prediction_error = np.zeros(len(actual_outcome))
+    
+    # for every observation
+    for i in np.arange(len(actual_outcome)):
+        
+        # if the actual outcome for that observation is in class 1...
+        if actual_outcome[i] == 1:
+            
+            # ...then the prediction error equals the negative natural logarithm of the predicted probability
+            prediction_error[i] = -np.log(predicted_probability[i])
+            
+        # if the actual outcome for that observation is in class 0...
+        if actual_outcome[i] == 0:
+            
+            # ...then prediction error equals the negative natural logarithm of 1 minus the predicted probability
+            prediction_error[i] = -np.log(1 - predicted_probability[i])
+        
+    return prediction_error
+```
+
+Let's calculate the prediction errors for the values in the dataframe above:
+
+```{python}
+illustration['prediction error'] = log_reg_pred_err(illustration['actual outcome'], 
+                                                    illustration['predicted probability of being in class 1'])
+
+illustration
+```
+
+Make sure you inspect this dataframe in great detail. It is very important. Remember that the predicted probability is is the probability of being in class 1. 
+
+We want the predicted probability to be large (close to 1) when the actual outcome score is in class 1. We want the predicted probability to be small (close to 0) when the actual outcome score is in class 0.
+
+<b> You can see that when the prediction is close - i.e. when the predicted probability is accurate - the prediction error is small. </b>
+
+<b> When the prediction is not close, the prediction error is large. </b>
+
+Remember that good model leads to <i> small prediction errors </i>. 
+
+Even if you do not understand the precise mechanics of the prediction error formulas in logistic regression, you can see how they work. 
+
+<i> When the predictions are good, the error values are small. When the predictions are bad, the error values are large. </i>
+
+Let's illustrate this further with a graph. The graph below shows the prediction error function for logistic regression:
+
+```{python}
+# do not worry about this code, it just generates the graph
+
+actual = np.random.choice([0,1], size = 5000)
+
+predictions = np.random.uniform(0.01, 0.99, size = 5000)
+
+error = log_reg_pred_err(actual, predictions)
+
+from mpl_toolkits.mplot3d import Axes3D
+
+fig = plt.figure(figsize = (10,8))
+ax = fig.add_subplot(111, projection='3d')
+ax.scatter(actual, predictions, error)
+plt.xlabel('Actual Outcome')
+plt.xticks([0,1])
+plt.ylabel('Predicted probability of being in class 1')
+
+ax.set_zlabel('Prediction Error');
+plt.show()
+```
+
+<!-- #region -->
+Again, take a bit of time to go over this graph. It is very important for understanding logistic regression.
+
+You can see from the graph that:
+
+If the actual outcome class is 0, and the predicted probability is close to 0, the prediction error is low.
+
+If the actual outcome class is 0, and the predicted probability is close to 1, the prediction error is high.
+
+If the actual outcome class is 1, and the predicted probability is close to 0, the prediction error is high.
+
+If the actual outcome class is 1, and the predicted probability is close to 1, the prediction error is low.
+
+Keep re-visiting the graph until you are sure of this pattern.
+
+## What is the name of the function for calculating prediction errors in logistic regression?
+
+The function we have just used for calculating the prediction errors in logistic regression is called the <i> cross-entropy cost function. </i>
+
+Conversely the errors in linear regression are calculated using the <i> squared prediction error function </i>.
+
+Both of these are shown again below, just so you can see how different they are:
+
+### Logistic regression cross-entropy cost function:
+
+ $$ \text{if the actual outcome == 1, then:}$$
+ $$\text{prediction error = -ln(predicted probability)} $$
+
+ $$ \text{if the actual outcome == 0, then:}$$
+ $$\text{prediction error = -ln(1 - predicted probability)} $$
+ 
+### Linear regression squared prediction error function:
+
+$$ \text{squared prediction error = (actual outcome value - predicted outcome value)}^2 $$
+
+
+<!-- #endregion -->
+
+# Logistic Regression using minimize
+
+We now have the tools we need to implement logistic regression using minimize. We are going to predict Anemia status (yes/no) from Red Blood Cell Count.
+
+The actual function that we minimize in logistic regression is the <i> average prediction error, </i> where each prediction error is calculated using the cross-entropy function shown above.
+
+Let's write a function to pass to `minimize`, which calculates the average prediction error for an intercept and slope pair. Go over the comments in the cell below and make sure you understand what each line is doing.
+
+```{python}
+def logb(arr, b=np.e):
+    """ Logarithm of `arr` to base `b`
+   
+    From formula in:
+    
+    https://en.wikipedia.org/wiki/Logarithm#Change_of_base
+    """
+    return np.log(arr) / np.log(b)
+```
+
+```{python}
+print(logb(11), np.log(11))
+print(logb(11, b=10), np.log10(11))
+print(logb(11, b=2), np.log2(11))
+```
+
+```{python}
+def params2pps(intercept_and_slope, x, b=np.e):
+    """ Calculate predicted probabilities of 1 for each observation
+    """
+    # store the intercept and slope as Python variables.
+    intercept, slope = intercept_and_slope
+    # Predicted log odds of being in class 1.
+    predicted_log_odds = intercept + slope * x
+    # To get the odds, we invert the log operation.
+    predicted_odds = b ** predicted_log_odds
+    # Predicted probability of being in class 1.
+    return predicted_odds / (1 + predicted_odds)
+```
+
+```{python}
+def p_y_given_pps(pps, y):
+    # pps is the predicted probability of being in class 1.
+    # Because class 1 and 0 are mutually exclusive:
+    pp0 = 1 - pps
+    p_of_y = pps.copy()  # y == 1 values correctly set.
+    p_of_y[y == 0] = pp0[y == 0]  # set the y==0 values.
+    # Or - equivalently, but rather less readably:
+    # p_of_y = y * pp1 + (1 - y) * pp0
+    return p_of_y
+```
+
+```{python}
+def calc_log_likelihood(pp1, y, b=np.e):
+    """ Overall log likelihood of `y` given predicted ps `pp1`
+    """
+    p_of_ys = p_y_given_pps(pp1, y)
+    # Overall likelihood of this intercept, slope combination is the product of
+    # all the likelihoods (we are multiplying probabilities).
+    # That would be:
+    # likelihood = np.prod(likelihoods)
+    # But - if we just multiply these, there are often so many values close to
+    # zero that the result gets close to the smallest values the computer can
+    # represent or even gets smaller, in which case the value becomes 0.
+    # To avoid this, we can add the logs (instead of taking the product of the
+    # original values).  Adding the logs gives us the log of the likelihood as
+    # defined above.
+    # Which base we use for the log here does not matter, we're just
+    # trying to maintain the precision, the results will go up and down
+    # in the same way, for the same values, and we don't care about
+    # the exact number, only that it is higher for a higher likelihood.
+    # But - just for completeness, use the general log function.
+    log_likelihood = np.sum(logb(p_of_ys, b=b))
+    return log_likelihood
+```
+
+```{python}
+def log_reg_cost(intercept_and_slope, x, y, b=np.e):
+    # Predicted probability of being in class 1.
+    pp1 = params2pps(intercept_and_slope, x, b=b)
+    # Overall log of the likelihood of observed outomes y
+    log_likelihood = calc_log_likelihood(pp1, y, b=b)
+    # At the moment, a higher value here means the intercept and slope are a
+    # *better* fit, but minimize wants the value to go *down* for a better fit,
+    # so we just stick a minus on it to make better fits give lower values.
+    return -log_likelihood
+```
+
+```{python}
+from scipy.optimize import minimize
+
+predictor = red_blood_anemia['Hemoglobin']
+outcome = red_blood_anemia['Anemia_dummy']
+
+# Results using default base of np.e
+b_e_res = minimize(log_reg_cost, [1,1], args = (predictor,outcome))
+p_values_e = params2pps(b_e_res.x, predictor)
+print('Base e fun value, best-fit parameters:', b_e_res.fun, b_e_res.x)
+# Results using base 10
+b_10_res = minimize(log_reg_cost, [1,1], args = (predictor, outcome, 10))
+p_values_10 = params2pps(b_10_res.x, predictor, b=10)
+print('Base 10 fun value, best-fit parameters:', b_10_res.fun, b_10_res.x)
+# The fun value, parameters for log e, log 10 are predictably scaled
+# versions of each other.
+print('Base 10 fun value, parameters, scaled by log(10):',
+      b_10_res.fun * np.log(10), b_10_res.x * np.log(10))
+# The estimated p values are (more or less) the same.
+print('p likelihoods similar?', np.allclose(p_values_e, p_values_10))
+```
+
+```{python}
+# Review what happens with the likelihood.
+pp1 = params2pps(b_e_res.x, predictor)
+p_of_ys = p_y_given_pps(pp1, outcome)
+p_of_ys
+```
+
+```{python}
+# We would be sort-of OK with the best parameters, in that
+# the product of the p values is not that close to 0:
+likelihood = np.prod(p_of_ys)
+print(likelihood)
+log_likelihood = np.sum(np.log(p_of_ys))
+print(log_likelihood)
+print(np.e ** log_likelihood)
+```
+
+```{python}
+# But it's a mess if we are further off, so some of the p
+# values get very small, and the product of the p values gets
+# very close to 0 - and then so close that it becomes 0.
+pp1_bad = params2pps([12, -1], predictor)
+p_of_ys_bad = p_y_given_pps(pp1_bad, outcome)
+p_of_ys_bad
+```
+
+```{python}
+likelihood_bad = np.prod(p_of_ys_bad)
+print(likelihood_bad)
+log_likelihood_bad = np.sum(np.log(p_of_ys_bad))
+print(log_likelihood_bad)
+print(np.e ** log_likelihood_bad)
+```
+
+```{python}
+# We could fix this with numbers that have 50 digits of precision
+# but that would be horribly slow.
+from decimal import Decimal, getcontext
+getcontext().prec = 50  # 50 decimal points.
+# An array of numbers working with 50 decimal digits of precision.
+p_of_ys_bad_hp = p_of_ys_bad.apply(Decimal)
+likelihood_bad_hp = np.prod(p_of_ys_bad_hp)
+print(likelihood_bad_hp)
+logs_hp = p_of_ys_bad_hp.apply(Decimal.ln)
+log_likelihood_bad_hp = np.sum(logs_hp)
+print(log_likelihood_bad_hp)
+e_hp = Decimal(1).exp()  # e to 50 decimal places.
+print(e_hp ** log_likelihood_bad_hp)
+```
+
+Notice above that the log likelihood is near as dammit the same as when we do the calculation without the high-precision numbers, but the high-precision numbers stop the rounding to 0.
+
+The conclusion is - we can keep using the log-likelihood at our usual fast precision, but we do need to do the log-likelihood rather than the direct product of p values, to avoid the calculation breaking down when it's trying parameters that are fairly far off.
+
+
+Now let's pass our function to `minimize`, to find the slope and intercept which minimize the average prediction error.
+
+We'll start with an intercept of 1 and a slope of 1 as our first guess. 
+
+```{python}
+# store the predictor variable as a python variable
+predictor = red_blood_anemia['Hemoglobin']
+
+# store the dummy-coded outcome variable as a python variable 
+outcome = red_blood_anemia['Anemia_dummy']
+
+min_log_reg = minimize(log_reg_cost, [1,1], args = (predictor,outcome))
+min_log_reg 
+```
+
+So `minimize` found an intercept of 10.43827715 and a slope of -3.14932093. These values minimize the prediction errors, calculated using the cross-entropy function.
+
+The slope is more interesting than the intercept here. 
+
+In fact the intercept is quite hard to interpret (for those who are interested: it is is the predicted natural logarithm of the odds of being in outcome class 1, for an observation with a Red Blood Cell Count of 0).
+
+The precise value of the slope is also quite hard to interpret, because it also relates to the natural logarithm of the odds of being in outcome class 1. 
+
+However, because the slope is negative, this tells us that as Red Blood Cell Count increases, the odds of being in class 1 (having anemia) decrease.
+
+Interpreting logistic regression is much easier if we use this slope and intercept to generate predicted probabilities of having anemia, for each observation.
+
+As we did before, let's generate the predicted probabilities using the intercept/slope values that `minimize` has found. The formulas for doing this are shown once more here for convenience:
+
+Calculate the predicted odds of having anemia:
+
+$$ \text{predicted odds of anemia} = e^{\text{intercept + slope * Red Blood Cell Count}} $$
+
+Calculate the predicted probability of having anemia:
+
+$$ \text{predicted probability of anemia} = \frac{e^{\text{intercept + slope * Red Blood Cell Count}}}{1 + e^{\text{intercept + slope * Red Blood Cell Count}}} = \frac{e^{\text{odds of anemia}}}{1 + e^{\text{odds of anemia}}} $$
+
+<i> Remember: </i> there is one predicted probability for each observation. This predicts the probability of having anemia for that patient, based on the patient's score on the Red Blood Cell Count variable.
+
+```{python}
+# store the intercept as a python variable
+log_reg_intercept = min_log_reg.x[0]
+
+# store the slope as a python variable
+log_reg_slope = min_log_reg.x[1]
+
+# generate the predicted odds of having anemia (using the tricks from above)
+predicted_odds_log_reg = np.e**(log_reg_intercept + log_reg_slope * red_blood_anemia['Hemoglobin'])
+
+# generate the predicted probability of having anemia (using the tricks from above)
+predicted_probs_log_reg = predicted_odds_log_reg/(1 + predicted_odds_log_reg)
+
+predicted_probs_log_reg
+```
+
+Let's plot the predictions against the actual data:
+
+```{python}
+# do not worry about this code, it just generates the graph
+plt.figure(figsize = (10, 4))
+plt.scatter(red_blood_anemia['Hemoglobin'], red_blood_anemia['Anemia_dummy'], label = 'not anemic')
+plt.scatter(red_blood_anemia[red_blood_anemia['Appetite'] == 'yes']['Hemoglobin'], 
+                             red_blood_anemia[red_blood_anemia['Appetite'] == 'yes']['Anemia_dummy'], color = 'red',
+            label = 'anemic')
+plt.scatter(red_blood_anemia['Hemoglobin'], predicted_probs_log_reg, 
+            label = 'predicted probability of anemia (logistic regression)', color = 'green')
+plt.xlabel('Hemoglobin')
+plt.ylabel('Anemia \n(0 = no, 1 = yes)')
+plt.legend()
+plt.yticks([0,0.5, 1]);
+```
+
+Just for comparison, let's also show the predictions we got when we predicted the probabilities using the slope and intercept that we got from linear regression:
+
+```{python}
+# do not worry about this code, it just generates the graph
+plt.figure(figsize = (10, 4))
+plt.scatter(red_blood_anemia['Hemoglobin'], red_blood_anemia['Anemia_dummy'], label = 'not anemic')
+plt.scatter(red_blood_anemia[red_blood_anemia['Appetite'] == 'yes']['Hemoglobin'], 
+                             red_blood_anemia[red_blood_anemia['Appetite'] == 'yes']['Anemia_dummy'], color = 'red',
+            label = 'anemic')
+plt.scatter(red_blood_anemia['Hemoglobin'], predicted_probs_log_reg, 
+            label = 'predicted probability of anemia (logistic regression)', color = 'green')
+plt.scatter(red_blood_anemia['Hemoglobin'], prob_anemia, 
+            label = 'predicted probability of anemia (linear regression)', color = 'orange')
+plt.xlabel('Hemoglobin')
+plt.ylabel('Anemia \n(0 = no, 1 = yes)')
+plt.legend()
+plt.yticks([0,0.5, 1]);
+```
+
+We can see that logistic regression fits the data much better.
+
+With logistic regression, the predicted probability of having anemia falls steeply as the Red Blood Cell Count increases.
+
+The predicted probabilities from linear regression overestimate the probability of anemia at higher values of Red Blood Cell Count.
+
+You can see that the predictions from logistic regression form an 'S' shape. This is a nonlinear function called a <i> sigmoid function. </i>
+
+Linear regression fits a <i> line to directly predict outcome scores, based on scores on a predictor variable.</i>
+
+Logistic regression fits a <i> sigmoid function to predict the probability of being in one of two categories, based on scores on a predictor variable </i>.
+
+## Logistic Regression with statsmodels
+
+As with linear regression, we can easily perform logistic regression using statsmodels.
+
+To do this, we first have to add a column of 1's to the predictor variable. This is to ensure the intercept is fitted correctly, though we will not explore why - just remember to do it in order to get better estimates! We can use the statsmodels function `add_constant()` to do this:
+
+<i> Note: here we are using `statsmodels.api` rather than `statsmodels.formula.api` </i> 
+
+```{python}
+list(df)
+```
+
+```{python}
+import statsmodels.formula.api as smf
+```
+
+```{python}
+# Creating the model
+op_col = 'Appetite'
+val_1 = 'good'
+ip_col = 'Hemoglobin'
+ip_df = df.loc[:, [op_col, ip_col]]
+ip_df['dummy'] = (ip_df[op_col] == val_1).astype(int)
+ip_df.plot.scatter(ip_col, 'dummy')
+```
+
+```{python}
+col_is_obj = df.dtypes == object
+category_cols = df.columns[col_is_obj]
+num_cols = df.columns[~col_is_obj]
+nums = df.replace({'yes': 1, 'no': 0,
+                   'abnormal': 1, 'normal': 0,
+                   'present': 1, 'notpresent': 0,
+                   'good': 1, 'poor': 0
+                  }).astype(np.float)
+nums.corr().loc[category_cols, num_cols]
+```
+
+```{python}
+log_reg_mod = smf.logit('dummy ~ Q("{}")'.format(ip_col),
+                        data=ip_df)
+
+fitted_log_reg_mod = log_reg_mod.fit() # fitting the model
+
+fitted_log_reg_mod.summary() # showing the model summary
+```
+
+Look at the table above under 'coef'. Compare the logistic regression intercept and slope that statsmodels has obtained to the ones we obtained through using `minimize`:
+
+```{python}
+print('Intercept from minimize =', log_reg_intercept)
+print('Slope from minimize =', log_reg_slope)
+```
+
+Finally, we can use the `predict` method of statsmodels to generate predicted
+probabilities from the logistic regression model we just fitted:
+
+```{python}
+sm_predictions = fitted_log_reg_mod.predict(ip_df[ip_col])
+sm_predictions
+```
+
+Let's plot the predicted probabilities of having anemia, from statsmodels:
+
+```{python}
+# do not worry about this code, it just generates the graph
+plt.figure(figsize = (10, 4))
+plt.scatter(red_blood_anemia['Hemoglobin'], red_blood_anemia['Anemia_dummy'], label = 'not anemic')
+plt.scatter(red_blood_anemia[red_blood_anemia['Appetite'] == 'yes']['Hemoglobin'], 
+                             red_blood_anemia[red_blood_anemia['Appetite'] == 'yes']['Anemia_dummy'], color = 'red',
+            label = 'anemic')
+plt.scatter(red_blood_anemia['Hemoglobin'], sm_predictions,
+            label = 'predicted probability of anemia (statsmodels logistic regression)', color = 'cyan')
+plt.xlabel('Hemoglobin')
+plt.ylabel('Anemia \n(0 = no, 1 = yes)')
+plt.legend()
+plt.yticks([0,0.5, 1]);
+```
+
+We can see graphically that these predictions look identical to the ones we obtained from minimize.
+
+Let's see what the largest absolute difference between the predictions from the two methods is:
+
+```{python}
+np.max(np.abs(predicted_probs_log_reg - sm_predictions))
+```
+
+That is very close to 0. The models are making almost identical predictions.
+
+## Summary
+
+This tutorial has shown you how to do binary logistic regression with one numerical predictor variable.
