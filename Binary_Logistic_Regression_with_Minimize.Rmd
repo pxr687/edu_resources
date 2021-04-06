@@ -425,7 +425,10 @@ plt.xlabel('Hemoglobin')
 plt.ylabel('Odds-ratio');
 ```
 
-Notice that this is an exponential line.  We can turn exponential lines like this one into straight lines, using the *logarithm* function, the next stage of the logit transformation:
+Notice that this is an exponential graph, where the y values increase more and
+more steeply as the x values increase.  We can turn exponential lines like this
+one into straight lines, using the *logarithm* function, the next stage of the
+logit transformation:
 
 ```{python}
 predictions_or_log = np.log(predictions_or)
