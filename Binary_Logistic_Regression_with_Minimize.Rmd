@@ -136,15 +136,24 @@ Now we can plot the hemoglobin values on the x axis (our predictor) against
 the appetite values on the y axis (the values to predict).
 
 ```{python tags=c("hide-cell")}
-# Show and customize the plot.
-hgb_app.plot.scatter('Hemoglobin', 'appetite_dummy', c='appetite_color',
-                    legend=True)
-plt.ylabel('Appetite\n0 = poor, 1 = good')
-plt.yticks([0,1]);  # Just label 0 and 1 on the y axis.
-# Put a custom legend on the plot.  Don't worry about this code.
-plt.scatter([], [], c='blue', label='good')
-plt.scatter([], [], c='red', label='poor')
-plt.legend()
+# We will use this plotting code several times, so put into a function for
+# later use.
+
+def plot_hgb_app():
+    # Build plot, add custom label.
+    hgb_app.plot.scatter('Hemoglobin', 'appetite_dummy',
+                         c='appetite_color',
+                         legend=True)
+    plt.ylabel('Appetite\n0 = poor, 1 = good')
+    plt.yticks([0,1]);  # Just label 0 and 1 on the y axis.
+    # Put a custom legend on the plot.  This code is a little obscure.
+    plt.scatter([], [], c='blue', label='good')
+    plt.scatter([], [], c='red', label='poor')
+
+# Do the plot
+plot_hgb_app()
+# Show the legend
+plt.legend();
 ```
 
 From the plot, it does look as if the patients with lower hemoglobin are more
@@ -152,7 +161,8 @@ likely to have poor appetite (`appetite_dummy` values of 0), whereas patients
 with higher hemoglobin tend to have good appetite (`appetite_dummy` values of
 1).
 
-Now we start to get more formal, and develop of model of in which we predict the `appetite_dummy` values from the  `Hemoglobin` values.
+Now we start to get more formal, and develop a model with which we predict the
+`appetite_dummy` values from the  `Hemoglobin` values.
 
 
 ## How about linear regression?
@@ -162,9 +172,12 @@ Remember that, in linear regression, we predict scores on the *outcome*
 variable (or column) using a straight-line relationship of the *predictor*
 variable (or column).
 
-Why not use this same technique for our case?  After all, the `appetite_dummy` values are just numbers (0 and 1), as are our `Hemoglobin` values.
+Why not use this same technique for our case?  After all, the `appetite_dummy`
+values are just numbers (0 and 1), as are our `Hemoglobin` values.
 
-Earlier in the textbook, we performed linear regression by using `minimize`, to find the value of the slope and intercept of the line which gives the smallest sum of the squared prediction errors. 
+Earlier in the textbook, we performed linear regression by using `minimize`, to
+find the value of the slope and intercept of the line which gives the smallest
+sum of the squared prediction errors.
 
 Recall that, in linear regression:
 
@@ -173,14 +186,20 @@ $$
 $$
 
 *predicted* and *predictor variable* here are sequences of values, with one
-value for each observation in the dataset. So if you have 200 observations,
-there will be 200 scores on the predictor variable, and 200 predictions, in
+value for each observation (row) in the dataset. In our case we have:
+
+```{python}
+print('Rows in CKD data', len(hgb_app))
+```
+
+"observations" (patients), so there will be the same number of scores on the
+predictor variable (`Hemoglobin`), and the same number of predictions, in
 `predicted`. By contrast, the slope and intercept are single values, defining
 the line.
 
-We use `minimize` to find the values of the slope and intercept which give the
-best predictions.  So far, we have almost invariably defined the *best* values
-for slope and intercept as the values that give the smallest sum of the
+We used `minimize` to find the values of the slope and intercept which give the
+"best" predictions.  So far, we have almost invariably defined the *best*
+values for slope and intercept as the values that give the smallest sum of the
 squared prediction errors.
 
 $$
@@ -191,16 +210,15 @@ $$
 What would happen if we tried to use linear regression to predict the
 probability of having good appetite, based on hemoglobin concentrations?
 
-Let us grab the `ss_error_for_minimize` function from the [Using minimize
-page](../mean-slopes/using_minimize.html), but adapt it for the current
-example
+Let us start by grabbing the `ss_any_line` function from the [Using minimize
+page](../mean-slopes/using_minimize.html).
 
 ```{python}
 def ss_any_line(c_s, x_values, y_values):
     # c_s is a list containing two elements, an intercept and a slope.
     intercept, slope = c_s
     # Values predicted from these x_values, using this intercept and slope.
-    predicted = intercept = x_values * slope
+    predicted = intercept + x_values * slope
     # Difference of prediction from the actual y values.
     error = y_values - predicted
     # Sum of squared error.
@@ -208,90 +226,236 @@ def ss_any_line(c_s, x_values, y_values):
 ```
 
 The sum of squared prediction error, in linear regression, is our *cost*
-function. When we have a good pair of intercept, slope in `c_s`, our function
-is *cheap* - i.e. the value is small.  When we have a bad pair in `c_s`, our
-function is *expensive* - the value is large.
+function. When we have a good pair of (intercept, slope) in `c_s`, our function
+is *cheap* - i.e. the returned value is small.  When we have a bad pair in
+`c_s`, our function is *expensive* - the returned value is large.
 
-If the value from `ss_any_line` is large, it means the line we are fitting
-does not fit the data well at all. The purpose of linear regression is to find
-the line which leads to the smallest cost.  In our case, the cost is the sum of the squared prediction errors.
+If the value from `ss_any_line` is large, it means the line we are fitting does
+not fit the data well. The purpose of linear regression is to find the
+line which leads to the smallest cost.  In our case, the cost is the sum of the
+squared prediction errors.
 
-Let's use linear regression on the current example.  From looking at our plot above, we start with a guess of -1 for the intercept, and 10 for the slope.
+Let's use linear regression on the current example.  From looking at our plot above, we start with a guess of -1 for the intercept, and 0.1 for the slope.
 
 ```{python}
 # The x (predictor) and y (to-be-predicted) variables.
-predictor = hgb_app['Hemoglobin']
-outcome = hgb_app['appetite_dummy']
+hemoglobin = hgb_app['Hemoglobin']
+appetite_d = hgb_app['appetite_dummy']
 # Use minimize to find the least sum of squares solution.
-min_lin_reg = minimize(ss_any_line, [-1, 10], args=(predictor, outcome))
+min_lin_reg = minimize(ss_any_line, [-1, 0.1], args=(hemoglobin, appetite_d))
 # Show the results that came back from minimize.
 min_lin_reg
 ```
 
 OK, so that looks hopeful. Using linear regression with `minimize` we found that the sum of squared prediction errors was smallest for a line with:
 
-
 ```{python}
 # Unpack the slope and intercept estimates from the results object.
 lin_reg_intercept, lin_reg_slope = min_lin_reg.x
 # Show them.
-print('Best intercept', lin_reg_intercept)
-print('Best slope', lin_reg_slope)
+print('Best linear regression intercept', lin_reg_intercept)
+print('Best linear regression slope', lin_reg_slope)
 ```
 
 The linear regression model we are using here is:
 
-$$ \text{predicted probability of anemia} = intercept + slope * \text{Red Blood Cell Count} $$
-
-```{python}
-# get the first element of the .x attribute of minimize (this is in the intercept)
-lin_reg_intercept = min_lin_reg.x[0]
-
-# get the second element of the .x attribute of minimize (this is in the slope)
-lin_reg_slope = min_lin_reg.x[1]
-
-# use the linear regression formula to generate the predicted probability of having anemia, one probability for each patient
-predictions_lin_reg = lin_reg_intercept + lin_reg_slope * hgb_app['Hemoglobin']
+```
+predicted_appetite_d = intercept + slope * hemoglobin
 ```
 
-Let's plot our predictions, alongside the actual data. The predictions, from linear regression, are shown in orange.
+Specifically:
 
 ```{python}
-# do not worry about this code, it just generates the graph
+predicted_lin_reg = lin_reg_intercept + lin_reg_slope * hemoglobin
+predicted_lin_reg
+```
 
-plt.figure(figsize = (10, 4))
-plt.scatter(hgb_app['Hemoglobin'], hgb_app['appetite_dummy'], label = 'not anemic')
-plt.scatter(hgb_app[hgb_app['Appetite'] == 'yes']['Hemoglobin'], 
-                             hgb_app[hgb_app['Appetite'] == 'yes']['appetite_dummy'], color = 'red',
-            label = 'anemic')
-plt.scatter(hgb_app['Hemoglobin'], predictions_lin_reg, 
-            label = 'predictions from linear regression', color = 'orange')
+Let's plot our predictions, alongside the actual data.  We plot the predictions
+from linear regression in orange.
+
+```{python tags=c("hide-cell")}
+# Do the base plot of the hemoglobin and appetite_d.
+plot_hgb_app()
+
+# A new plot on top of the old.
+plt.scatter(hemoglobin, predicted_lin_reg,
+            label='LR prediction',
+            color='orange')
+# Another plot, to show the underlying line
+fine_x = np.linspace(np.min(hemoglobin), np.max(hemoglobin), 1000)
+fine_y = lin_reg_intercept + lin_reg_slope * fine_x
+plt.plot(fine_x, fine_y, linewidth=1, linestyle=':')
+# Show the legend.
+plt.legend();
+```
+
+The linear regression line looks plausible, as far as it goes, but it has
+several unhappy features for our task of predicting the `appetite_d` 0 / 1
+values.
+
+It looks like the predictions are getting it right that the value of
+`appetite_d` is more likely to be 1 (meaning "good") at higher values of
+`hemoglobin`.
+
+The prediction line slopes upward as `hemoglobin` gets higher, indicating that
+the probability of good appetite gets higher as the hemoglobin concentration
+rises, across patients.
+
+However, when the `hemoglobin` gets higher than about 15.5, linear regression
+starts to predict a value for `appetite_d` that is greater than 1 - which, of
+course, cannot occur in the `appetite_d` values, which are restricted to 0 or
+1.
+
+Looking at the plot, without the regression line, it looks as if we can be
+fairly confident of predicting a 1 ("good") value for a hemoglobin above 12.5, but we are increasingly less confident about predicting a 1 value as hemoglobin drops down to about 7.5, at which point we become confident about predicting a 0 value.
+
+These reflections make as wonder whether we should be using something other than a simple, unconstrained straight line for our predictions.
+
+
+## Another prediction line
+
+
+Here's another prediction line we might use for `appetite_d`, with the
+predicted values.
+
+For the moment, please don't worry about how we came by this line, we will come onto that soon.
+
+The new prediction line is in gold.
+
+```{python tags=c("hide-cell")}
+# This is the machinery for making the not-straight line for the plot
+# below.  We will come on that machinery soon.  For now please ignore
+# this code, and concentrate on the plots below.
+
+def params2pps(intercept_and_slope, x):
+    """ Calculate predicted probabilities of 1 for each observation.
+    """
+    # store the intercept and slope as Python variables.
+    intercept, slope = intercept_and_slope
+    # Predicted log odds of being in class 1.
+    predicted_log_odds = intercept + slope * x
+    # To get the odds, we invert the log operation with exp
+    predicted_odds = np.exp(predicted_log_odds)
+    # Predicted probability of being in class 1.
+    return predicted_odds / (1 + predicted_odds)
+
+nice_c_s = [-7, 0.8]
+predictions_new = params2pps(nice_c_s, hemoglobin)
+```
+
+```{python tags=c("hide-cell")}
+# Do the base plot of the hemoglobin and appetite_d.
+plot_hgb_app()
+
+# A new plot on top of the old.
+plt.scatter(hemoglobin, predictions_new,
+            label='New prediction',
+            color='gold')
+# Another plot, to show the underlying line
+fine_y_sigmoid = params2pps(nice_c_s, fine_x)
+plt.plot(fine_x, fine_y_sigmoid, linewidth=1, linestyle=':')
+# Show the legend.
+plt.legend();
+```
+
+This new not-straight line seems to have much to recommend it.  This shape of
+line is called "sigmoid", from the name of the Greek letter "s".  The sigmoid
+prediction here never goes above 1 or below 0, so its values are always in the
+range of the `appetite_d` data it is trying to predict.  It climbs steeply to a
+prediction of 1, and plateaus there, as we get to the threshold of about
+hemoglobin of around 12.5, at which every patient does seem to have "good"
+appetite (`appetite_d` of 1).
+
+We can think of the values from the sigmoid curve as being *predicted
+probabilities*.  For example, at a `hemoglobin` value of 10, the curve gives a
+predicted y (`appetite_d`) value of about 0.73.  We can interpret this
+prediction as saying that, with a hemoglobin value of 10, there is a
+*probability* of about 0.73 that the corresponding patient will have a "good"
+appetite (`appetite_d` value of 1).
+
+Now let us say that we would prefer to use this kind of sigmoid line to predict
+`appetite_d`.  So far, we have only asked `minimize` to predict directly from a
+straight line - for example, in the `ss_any_line` function.   How can we get
+minimize to predict from a family of sigmoid curves, as here?  Is there a way
+of transforming a sigmoid curve like the one here, with y values from 0 to 1,
+to a straight line, where the y values can vary “from large negative to large
+positive.  We would like to do such a conversion, so we have a slope and
+intercept that `minimize` can work with easily.
+
+The answer, you can imagine, is "yes" - we can go from our sigmoid 0 / 1 curve
+to a straight line with unconstrained y values, in two fairly simple steps.
+The next sections will cover those steps.  The two steps are:
+
+* Convert the 0 / 1 *probability* predictions to 0-to-large positive
+  predictions of the *odds ratio*.  The odds-ratio can vary from 0 to very
+  large positive.
+* Apply the *logarithm* function to convert the 0-to-very-large-positive
+  odds-ratio predictions to log odds-ratio predictions, which can vary from
+  large negative to large positive.
+
+These two transformations together are called the *log-odds* or
+[logit](https://en.wikipedia.org/wiki/Logit) transformation.  *Logistical
+regression* is regression using the *logit* transform.  Applying the logit
+transform converts the sigmoid curve to a straight line.
+
+We will explain more about the two stages of the transform below, but for now, here are the two stages in action.
+
+This is the original sigmoid curve above, with the predictions, in its own
+plot.
+
+```{python tags=c("hide-cell")}
+plt.scatter(hemoglobin, predictions_new,
+            color='gold')
+plt.plot(fine_x, fine_y_sigmoid, linewidth=1, linestyle=':')
+plt.title('Sigmoid probability prediction')
 plt.xlabel('Hemoglobin')
-plt.ylabel('Anemia \n(0 = no, 1 = yes)')
-plt.legend()
-plt.yticks([0,1]);
+plt.ylabel('Probability prediction');
 ```
 
-<!-- #region -->
-Oh dear, what a mess.
+Next we apply the conversion from probability to odds-ratio:
 
-It looks like the predictions are getting it right that the probability of having anemia is higher at lower values of Red Blood Cell Count. 
+```{python tags=c("hide-cell")}
+predictions_or = predictions_new / (1 - predictions_new)
+plt.scatter(hemoglobin, predictions_or,
+            color='gold')
+fine_y_or = fine_y_sigmoid / (1 - fine_y_sigmoid)
+plt.plot(fine_x, fine_y_or, linewidth=1, linestyle=':')
+plt.title('Odds-ratio prediction')
+plt.xlabel('Hemoglobin')
+plt.ylabel('Odds-ratio');
+```
 
-The prediction line slopes downward as Red Blood Cell Count gets higher, indicating that the probability of anemia gets lower as the Red Blood Cell Count gets higher. 
+Notice that this is an exponential line.  We can turn exponential lines like this one into straight lines, using the *logarithm* function, the next stage of the logit transformation:
 
-However, as Red Blood Cell Count gets higher than about 5.4, linear regression starts to predict a negative probability of anemia. 
+```{python}
+predictions_or_log = np.log(predictions_or)
+plt.scatter(hemoglobin, predictions_or_log,
+            color='gold')
+fine_y_or_log = np.log(fine_y_or)
+plt.plot(fine_x, fine_y_or_log, linewidth=1, linestyle=':')
+plt.title('Log odds-ratio prediction')
+plt.xlabel('Hemoglobin')
+plt.ylabel('Log odds-ratio');
+```
 
-For the Anemia variable, the values of the variable itself (the dummy codes 0 or 1), and the probability of being in either class, are both restricted to being between 0 or 1. 
-
-Linear regression will not work here, as its predictions are <b> not </b> limited to being between 0 and 1.
+Now we have a straight line, with an intercept and slope, suitable for
+`minimize`.  The next few sections go into more detail on the odds-ratio and
+logarithm steps.
 
 ## Probability and Odds
 
-For logistic regression, in contrast to linear regression, we are interested in predicting the <i> probability of an observation falling into a particular outcome class, </i> rather than predicting the numerical value of the outcome score. 
 
-In this case, we are interested in the probability of a patient having anemia, predicted from the patient's Red Blood Cell Count. 
+For logistic regression, in contrast to linear regression, we are interested in
+predicting the *probability of an observation falling into a particular outcome
+class* (0 or 1).
 
-From the graph above, it looks as those there is a higher probability of having anemia if you have a lower Red Blood Cell Count. We can see this because a higher proportion of the red dots (representing patients with anemia) occur at lower values of Red Blood Cell Count.
+In this case, we are interested in the probability of a patient having "good"
+appetite, predicted from the patient's hemoglobin.
+
+From the graph above, it looks as those there is a higher probability of having
+good appetite if you have a higher hemoglobin . We can see this because a
+higher proportion of the blue dots (representing patients with good appetite)
+occur at higher values of hemoglobin.
 
 You'll know that probability is:
 
@@ -342,7 +506,7 @@ $$ \text{predicted odds of anemia} = e^{\text{intercept + slope * Red Blood Cell
 OK, so far so good, we raise `e` to the power of our linear regression predictions and we get a prediction of the odds of anemia for each observation. But there is still a problem - these odds are not limited to fall between 0 and 1:
 
 ```{python}
-odds_anemia = np.e**predictions_lin_reg
+odds_anemia = np.e**predicted_lin_reg
 
 odds_anemia
 ```
@@ -590,6 +754,41 @@ $$ \text{squared prediction error = (actual outcome value - predicted outcome va
 
 
 <!-- #endregion -->
+
+
+## What do the slope and intercept mean for logit
+
+Changing the intercept of the logit straight line moves the corresponding
+sigmoid curve left and right on the horizontal axis:
+
+```{python}
+for intercept in [-6, -7, -8]:
+    plt.plot(fine_x,
+            params2pps([intercept, 0.8], fine_x),
+            linewidth=1,
+            linestyle=':',
+            label=f'intercept={intercept}')
+plt.title('Sigmoid probability predictions')
+plt.xlabel('Hemoglobin')
+plt.ylabel('Probability prediction')
+plt.legend();
+```
+
+Changing the slope of the logit straight line makes the transition from 0 to 1
+flatter or steeper:
+
+```{python}
+for slope in [0.6, 0.8, 1.0]:
+    plt.plot(fine_x,
+            params2pps([-7, slope], fine_x),
+            linewidth=1,
+            linestyle=':',
+            label=f'slope={slope:.1f}')
+plt.title('Sigmoid probability predictions')
+plt.xlabel('Hemoglobin')
+plt.ylabel('Probability prediction')
+plt.legend();
+```
 
 # Logistic Regression using minimize
 
