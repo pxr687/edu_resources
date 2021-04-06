@@ -25,6 +25,8 @@ pd.set_option('mode.chained_assignment', 'raise')
 import matplotlib.pyplot as plt
 # Make the plots look more fancy.
 plt.style.use('fivethirtyeight')
+# Optimization function
+from scipy.optimize import minimize
 ```
 
 By Peter Rush and Matthew Brett, with considerable inspiration from the
@@ -68,64 +70,202 @@ df = pd.read_csv('ckd_clean.csv')
 df.head()
 ```
 
-There are actually a large number of binary categorical variables in this dataset. The cell below shows the unique values which are in each column of the dataframe which contains labels (strings, rather than numbers).
+There are actually a large number of binary categorical variables in this
+dataset.   For example, the "Hypertension" column has labels for the two
+categories "yes" (the patient had persistently high blood pressure) or "no".
 
-In each of these columns, the observations fall into one of two classes, so they are binary categorical variables. The printout below shows these variables, and the two values they can each take.
+The categorical variable we are interested in here is "Appetite".  This has
+the label "good" for patients with good appetite, and "poor" for those with
+poor appetite.  Poor appetite is a [symptom of chronic kidney
+disease](https://www.sciencedirect.com/science/article/abs/pii/S0270929508001666).  In our case, we wonder whether the extent of kidney damage does a convincing job in predicting whether the patient has a "good" appetite.
+
+As you remember, the CKD dataset has a column "Hemoglobin" that has the
+concentration of hemoglobin from a blood sample.  Hemoglobin is the molecule
+that carries oxygen in the blood; it is the molecule that makes the red blood
+cells red.  Damaged kidneys produce lower concentrations of the hormone that
+stimulates red blood cell production,
+[erythropoietin](https://en.wikipedia.org/wiki/Erythropoietin), so CKD
+patients often have fewer red blood cells, and lower concentrations of
+Hemoglobin.  We will take lower "Hemoglobin" as a index of kidney damage.
+Therefore, we predict that patients with lower "Hemoglobin" values are more
+likely to have `poor` "Appetite" values, and, conversely, patients with higher
+"Hemoglobin" values are more likely to have `good` "Appetite" values.
+
+First we make a new data frame that just has the two columns we are interested
+in:
 
 ```{python}
-# do not worry about this code, it just generates the printout below
-
-for i in df.columns[np.where(df.dtypes == 'object')]:
-    
-    print('\nUnique values in the', i, 'column:')
-    print(df[i].unique())
-```
-
-Let's say we are interested in the relationship between Red Blood Cell Count and whether a patient has anemia or not.
-
-Let's have a look at just the two columns we are interested in.
-
-```{python}
-red_blood_anemia = df.loc[:, ['Hemoglobin', 'Appetite']].copy()
-
-red_blood_anemia
+hgb_app = df.loc[:, ['Hemoglobin', 'Appetite']].copy()
+hgb_app.head()
 ```
 
 ## Dummy Variables
 
-For logistic regression, instead of using labels like 'no' or 'yes' we use <i> dummy variables. </i>
-
-This means we will use the number 1 to represent one of the labels, and the number 0 to represent the other label. 
-
-We can use `np.where` to create dummy variables; this is shown in the cell below.
-
-<i> Note: </i> when you are doing this, be sure to keep track of which label you have coded as 1. Normally this would be the more interesting outcome (in this case, 'Yes' is coded as 1). Keep track of it, as it will affect the interpretation of the regression coefficients.
-
-```{python}
-anemia_dummy = np.where(red_blood_anemia ['Appetite'] == 'yes', 1, 0) # 1 where Anemia == 'yes'
-                                                                      # 0 where Anemia == 'no'
-
-anemia_dummy
-```
-
-Let's add the dummy variable to the `red_blood_anemia` dataframe.
+We will soon find ourselves wanting to do calculations on the values in the
+"Appetite" column, and we cannot easily do that with the current string values
+of "good" and "poor".   Our next step is to recode the string values to
+numbers, ready for our calculations.  We use 1 to represent "good" and 0 to
+represent "poor".  This kind of recoding, where we replace category labels
+with 1 and 0 values, is often called *dummy coding*.
 
 ```{python}
-red_blood_anemia['Anemia_dummy'] = anemia_dummy
-
-red_blood_anemia
+# Make a Boolean Series (True, False)
+good_appetite = hgb_app['Appetite'] == 'good'
+# Convert to an integer (1 for True, 0 for False), and store.
+hgb_app['appetite_dummy'] = good_appetite.astype(int)
+hgb_app.head()
 ```
 
-Now we have the dummy variable, let's use a scatter plot visualise the relationship between Reb Blood Cell Count and whether a patient has anemia:
+*Note*: When you are doing this, be sure to keep track of which label you have
+coded as 1. Normally this would be the more interesting outcome.  In this
+case, "good" has the code 1. Keep track of the label corresponding to 1, as it
+will affect the interpretation of the regression coefficients.
+
+Now we have the dummy (1 or 0) variable, let us use a scatter plot to look at
+the relationship between hemoglobin concentration and whether a patient has a
+good appetite.
+
+Before we do this, it is convenient to add another column to color the "good" and "poor" appetite points:
+
+```{python}
+hgb_app['appetite_color'] = 'red'
+hgb_app.loc[good_appetite, 'appetite_color'] = 'blue'
+```
+
+Now we can plot the hemoglobin values on the x axis (our predictor) against
+the appetite values on the y axis (the values to predict).
+
+```{python tags=c("hide-cell")}
+# Show and customize the plot.
+hgb_app.plot.scatter('Hemoglobin', 'appetite_dummy', c='appetite_color',
+                    legend=True)
+plt.ylabel('Appetite\n0 = poor, 1 = good')
+plt.yticks([0,1]);  # Just label 0 and 1 on the y axis.
+# Put a custom legend on the plot.  Don't worry about this code.
+plt.scatter([], [], c='blue', label='good')
+plt.scatter([], [], c='red', label='poor')
+plt.legend()
+```
+
+From the plot, it does look as if the patients with lower hemoglobin are more
+likely to have poor appetite (`appetite_dummy` values of 0), whereas patients
+with higher hemoglobin tend to have good appetite (`appetite_dummy` values of
+1).
+
+Now we start to get more formal, and develop of model of in which we predict the `appetite_dummy` values from the  `Hemoglobin` values.
+
+
+## How about linear regression?
+
+
+Remember that, in linear regression, we predict scores on the *outcome*
+variable (or column) using a straight-line relationship of the *predictor*
+variable (or column).
+
+Why not use this same technique for our case?  After all, the `appetite_dummy` values are just numbers (0 and 1), as are our `Hemoglobin` values.
+
+Earlier in the textbook, we performed linear regression by using `minimize`, to find the value of the slope and intercept of the line which gives the smallest sum of the squared prediction errors. 
+
+Recall that, in linear regression:
+
+$$
+\text{predicted} = intercept + slope * \text{predictor_variable}
+$$
+
+*predicted* and *predictor variable* here are sequences of values, with one
+value for each observation in the dataset. So if you have 200 observations,
+there will be 200 scores on the predictor variable, and 200 predictions, in
+`predicted`. By contrast, the slope and intercept are single values, defining
+the line.
+
+We use `minimize` to find the values of the slope and intercept which give the
+best predictions.  So far, we have almost invariably defined the *best* values
+for slope and intercept as the values that give the smallest sum of the
+squared prediction errors.
+
+$$
+\text{prediction errors} = \text{actual variable - predicted}
+$$
+
+
+What would happen if we tried to use linear regression to predict the
+probability of having good appetite, based on hemoglobin concentrations?
+
+Let us grab the `ss_error_for_minimize` function from the [Using minimize
+page](../mean-slopes/using_minimize.html), but adapt it for the current
+example
+
+```{python}
+def ss_any_line(c_s, x_values, y_values):
+    # c_s is a list containing two elements, an intercept and a slope.
+    intercept, slope = c_s
+    # Values predicted from these x_values, using this intercept and slope.
+    predicted = intercept = x_values * slope
+    # Difference of prediction from the actual y values.
+    error = y_values - predicted
+    # Sum of squared error.
+    return np.sum(error ** 2)
+```
+
+The sum of squared prediction error, in linear regression, is our *cost*
+function. When we have a good pair of intercept, slope in `c_s`, our function
+is *cheap* - i.e. the value is small.  When we have a bad pair in `c_s`, our
+function is *expensive* - the value is large.
+
+If the value from `ss_any_line` is large, it means the line we are fitting
+does not fit the data well at all. The purpose of linear regression is to find
+the line which leads to the smallest cost.  In our case, the cost is the sum of the squared prediction errors.
+
+Let's use linear regression on the current example.  From looking at our plot above, we start with a guess of -1 for the intercept, and 10 for the slope.
+
+```{python}
+# The x (predictor) and y (to-be-predicted) variables.
+predictor = hgb_app['Hemoglobin']
+outcome = hgb_app['appetite_dummy']
+# Use minimize to find the least sum of squares solution.
+min_lin_reg = minimize(ss_any_line, [-1, 10], args=(predictor, outcome))
+# Show the results that came back from minimize.
+min_lin_reg
+```
+
+OK, so that looks hopeful. Using linear regression with `minimize` we found that the sum of squared prediction errors was smallest for a line with:
+
+
+```{python}
+# Unpack the slope and intercept estimates from the results object.
+lin_reg_intercept, lin_reg_slope = min_lin_reg.x
+# Show them.
+print('Best intercept', lin_reg_intercept)
+print('Best slope', lin_reg_slope)
+```
+
+The linear regression model we are using here is:
+
+$$ \text{predicted probability of anemia} = intercept + slope * \text{Red Blood Cell Count} $$
+
+```{python}
+# get the first element of the .x attribute of minimize (this is in the intercept)
+lin_reg_intercept = min_lin_reg.x[0]
+
+# get the second element of the .x attribute of minimize (this is in the slope)
+lin_reg_slope = min_lin_reg.x[1]
+
+# use the linear regression formula to generate the predicted probability of having anemia, one probability for each patient
+predictions_lin_reg = lin_reg_intercept + lin_reg_slope * hgb_app['Hemoglobin']
+```
+
+Let's plot our predictions, alongside the actual data. The predictions, from linear regression, are shown in orange.
 
 ```{python}
 # do not worry about this code, it just generates the graph
 
 plt.figure(figsize = (10, 4))
-plt.scatter(red_blood_anemia['Hemoglobin'], red_blood_anemia['Anemia_dummy'], label = 'not anemic')
-plt.scatter(red_blood_anemia[red_blood_anemia['Appetite'] == 'yes']['Hemoglobin'], 
-                             red_blood_anemia[red_blood_anemia['Appetite'] == 'yes']['Anemia_dummy'], color = 'red',
+plt.scatter(hgb_app['Hemoglobin'], hgb_app['appetite_dummy'], label = 'not anemic')
+plt.scatter(hgb_app[hgb_app['Appetite'] == 'yes']['Hemoglobin'], 
+                             hgb_app[hgb_app['Appetite'] == 'yes']['appetite_dummy'], color = 'red',
             label = 'anemic')
+plt.scatter(hgb_app['Hemoglobin'], predictions_lin_reg, 
+            label = 'predictions from linear regression', color = 'orange')
 plt.xlabel('Hemoglobin')
 plt.ylabel('Anemia \n(0 = no, 1 = yes)')
 plt.legend()
@@ -133,9 +273,17 @@ plt.yticks([0,1]);
 ```
 
 <!-- #region -->
-From graphical inspection, it does look like these variables (perhaps unsurprisingly!) are related.
+Oh dear, what a mess.
 
-We can see that patients with anemia have lower red blood cell counts.
+It looks like the predictions are getting it right that the probability of having anemia is higher at lower values of Red Blood Cell Count. 
+
+The prediction line slopes downward as Red Blood Cell Count gets higher, indicating that the probability of anemia gets lower as the Red Blood Cell Count gets higher. 
+
+However, as Red Blood Cell Count gets higher than about 5.4, linear regression starts to predict a negative probability of anemia. 
+
+For the Anemia variable, the values of the variable itself (the dummy codes 0 or 1), and the probability of being in either class, are both restricted to being between 0 or 1. 
+
+Linear regression will not work here, as its predictions are <b> not </b> limited to being between 0 and 1.
 
 ## Probability and Odds
 
@@ -173,115 +321,6 @@ $$ \frac{\text{number of people WITH anemia}}{\text{number of people who WITHOUT
 So if there are 100 people, and 30 of them have anemia, the odds of having anemia (in that group) are:
     
 $$ \frac{\text{number of people WITH anemia}}{\text{number of people WITHOUT anemia}} = \frac{\text{30}}{\text{70}}  $$
-
-## Why not just use linear regression?
-
-Remember that in linear regression, we predict scores on the outcome variable directly. So if we were predicting peoples' weight from their height, our final prediction would be a specific value of weight. We might predict that if someone is X cm tall, they will weigh Y kg.
-
-In logistic regression, our final prediction is a probability of falling into a specific class (specifically, it is the probability of falling into the class we have dummy coded as '1'). 
-
-In our current case, if someone has a Red Blood Cell Count of X, we can use logistic regression to predict that they have Y% probability of having anemia. 
-
-Earlier in the textbook, we performed linear regression by using `minimize`, to find the value of the slope and intercept of the line which gives the smallest sum of the squared prediction errors. 
-
-Recall that in linear regression:
-
-$$ \text{prediction} = intercept + slope * \text{predictor_variable} $$
-
-Remember that the 'prediction' and 'predictor variable' are collections, with one value for each observation in the dataset. So if you have 200 observations, there will be 200 scores on the predictor variable, and 200 predictons. By contrast, the slope and intercept are single values.
-
-We use `minimize` to find the values of the slope and intercept which give the best predictions. That is, the values of the slope and intercept which give the smallest sum of the squared prediction errors.
-
-$$ \text{prediction error} = \text{actual value - prediction} $$
-
-
-What would happen if we tried to use linear regression to predict the probability of having anemia, based on Red Blood Cell Count?
-    
-Let's grab the `sos_error_for_minimize` function from the 'Using minizmize' page (https://matthew-brett.github.io/cfd2020/mean-slopes/using_minimize.html), but adapt it for the current example.
-
-```{python}
-def sos_error_for_minimize(intercept_and_slope):
-    
-    # intercept_and_slope is a list containing two elements, an intercept and a slope.
-    
-    # store the intercept as a python variable
-    intercept = intercept_and_slope[0]
-    
-    # store the slope as a python variable
-    slope = intercept_and_slope[1]
-    
-    # generate the predicted anemia probabilities, using the slope and intercept
-    predicted = intercept + slope * red_blood_anemia['Hemoglobin']
-    
-    # calculate the prediction error
-    error = red_blood_anemia['Anemia_dummy'] - predicted
-    
-    # return the sum of the squared prediction error
-    return np.sum(error ** 2)
-```
-
-The sum of squared prediction error, in linear regression, is our <i> cost </i> function. We want this function to be <i> cheap </i> i.e. we want its value to be small. 
-
-If it is large, it means the line we are fitting does not fit the data well at all. The purpose of linear regression is to find the line which leads to the smallest sum of squared prediction errors.
-
-Let's use linear regression on the current example:
-
-```{python}
-from scipy.optimize import minimize
-
-min_lin_reg = minimize(sos_error_for_minimize, [1, 1])
-min_lin_reg
-```
-
-Ok, so that looks hopeful. Using linear regression with `minimize` we found that the sum of squared prediction errors was smallest for a line with an intercept of 0.94590155 and a slope of -0.17266457.
-
-Let's get those values, store them as separate variables, and use them to predict the probability of having anemia.
-
-The linear regression model we are using here is:
-
-$$ \text{predicted probability of anemia} = intercept + slope * \text{Red Blood Cell Count} $$
-
-```{python}
-# get the first element of the .x attribute of minimize (this is in the intercept)
-lin_reg_intercept = min_lin_reg.x[0]
-
-# get the second element of the .x attribute of minimize (this is in the slope)
-lin_reg_slope = min_lin_reg.x[1]
-
-# use the linear regression formula to generate the predicted probability of having anemia, one probability for each patient
-predictions_lin_reg = lin_reg_intercept + lin_reg_slope * red_blood_anemia['Hemoglobin']
-```
-
-Let's plot our predictions, alongside the actual data. The predictions, from linear regression, are shown in orange.
-
-```{python}
-# do not worry about this code, it just generates the graph
-
-plt.figure(figsize = (10, 4))
-plt.scatter(red_blood_anemia['Hemoglobin'], red_blood_anemia['Anemia_dummy'], label = 'not anemic')
-plt.scatter(red_blood_anemia[red_blood_anemia['Appetite'] == 'yes']['Hemoglobin'], 
-                             red_blood_anemia[red_blood_anemia['Appetite'] == 'yes']['Anemia_dummy'], color = 'red',
-            label = 'anemic')
-plt.scatter(red_blood_anemia['Hemoglobin'], predictions_lin_reg, 
-            label = 'predictions from linear regression', color = 'orange')
-plt.xlabel('Hemoglobin')
-plt.ylabel('Anemia \n(0 = no, 1 = yes)')
-plt.legend()
-plt.yticks([0,1]);
-```
-
-<!-- #region -->
-Oh dear, what a mess.
-
-It looks like the predictions are getting it right that the probability of having anemia is higher at lower values of Red Blood Cell Count. 
-
-The prediction line slopes downward as Red Blood Cell Count gets higher, indicating that the probability of anemia gets lower as the Red Blood Cell Count gets higher. 
-
-However, as Red Blood Cell Count gets higher than about 5.4, linear regression starts to predict a negative probability of anemia. 
-
-For the Anemia variable, the values of the variable itself (the dummy codes 0 or 1), and the probability of being in either class, are both restricted to being between 0 or 1. 
-
-Linear regression will not work here, as its predictions are <b> not </b> limited to being between 0 and 1.
 
 # The Logistic Transformation
 
@@ -334,11 +373,11 @@ Let's plot these predicted probabilities along with the actual data:
 ```{python}
 # do not worry about this code, it just generates the graph
 plt.figure(figsize = (10, 4))
-plt.scatter(red_blood_anemia['Hemoglobin'], red_blood_anemia['Anemia_dummy'], label = 'not anemic')
-plt.scatter(red_blood_anemia[red_blood_anemia['Appetite'] == 'yes']['Hemoglobin'], 
-                             red_blood_anemia[red_blood_anemia['Appetite'] == 'yes']['Anemia_dummy'], color = 'red',
+plt.scatter(hgb_app['Hemoglobin'], hgb_app['appetite_dummy'], label = 'not anemic')
+plt.scatter(hgb_app[hgb_app['Appetite'] == 'yes']['Hemoglobin'], 
+                             hgb_app[hgb_app['Appetite'] == 'yes']['appetite_dummy'], color = 'red',
             label = 'anemic')
-plt.scatter(red_blood_anemia['Hemoglobin'], prob_anemia, 
+plt.scatter(hgb_app['Hemoglobin'], prob_anemia, 
             label = 'predicted probability of anemia', color = 'orange')
 plt.xlabel('Hemoglobin')
 plt.ylabel('Anemia \n(0 = no, 1 = yes)')
@@ -642,8 +681,8 @@ def log_reg_cost(intercept_and_slope, x, y, b=np.e):
 ```{python}
 from scipy.optimize import minimize
 
-predictor = red_blood_anemia['Hemoglobin']
-outcome = red_blood_anemia['Anemia_dummy']
+predictor = hgb_app['Hemoglobin']
+outcome = hgb_app['appetite_dummy']
 
 # Results using default base of np.e
 b_e_res = minimize(log_reg_cost, [1,1], args = (predictor,outcome))
@@ -722,10 +761,10 @@ We'll start with an intercept of 1 and a slope of 1 as our first guess.
 
 ```{python}
 # store the predictor variable as a python variable
-predictor = red_blood_anemia['Hemoglobin']
+predictor = hgb_app['Hemoglobin']
 
 # store the dummy-coded outcome variable as a python variable 
-outcome = red_blood_anemia['Anemia_dummy']
+outcome = hgb_app['appetite_dummy']
 
 min_log_reg = minimize(log_reg_cost, [1,1], args = (predictor,outcome))
 min_log_reg 
@@ -763,7 +802,7 @@ log_reg_intercept = min_log_reg.x[0]
 log_reg_slope = min_log_reg.x[1]
 
 # generate the predicted odds of having anemia (using the tricks from above)
-predicted_odds_log_reg = np.e**(log_reg_intercept + log_reg_slope * red_blood_anemia['Hemoglobin'])
+predicted_odds_log_reg = np.e**(log_reg_intercept + log_reg_slope * hgb_app['Hemoglobin'])
 
 # generate the predicted probability of having anemia (using the tricks from above)
 predicted_probs_log_reg = predicted_odds_log_reg/(1 + predicted_odds_log_reg)
@@ -776,11 +815,11 @@ Let's plot the predictions against the actual data:
 ```{python}
 # do not worry about this code, it just generates the graph
 plt.figure(figsize = (10, 4))
-plt.scatter(red_blood_anemia['Hemoglobin'], red_blood_anemia['Anemia_dummy'], label = 'not anemic')
-plt.scatter(red_blood_anemia[red_blood_anemia['Appetite'] == 'yes']['Hemoglobin'], 
-                             red_blood_anemia[red_blood_anemia['Appetite'] == 'yes']['Anemia_dummy'], color = 'red',
+plt.scatter(hgb_app['Hemoglobin'], hgb_app['appetite_dummy'], label = 'not anemic')
+plt.scatter(hgb_app[hgb_app['Appetite'] == 'yes']['Hemoglobin'], 
+                             hgb_app[hgb_app['Appetite'] == 'yes']['appetite_dummy'], color = 'red',
             label = 'anemic')
-plt.scatter(red_blood_anemia['Hemoglobin'], predicted_probs_log_reg, 
+plt.scatter(hgb_app['Hemoglobin'], predicted_probs_log_reg, 
             label = 'predicted probability of anemia (logistic regression)', color = 'green')
 plt.xlabel('Hemoglobin')
 plt.ylabel('Anemia \n(0 = no, 1 = yes)')
@@ -793,13 +832,13 @@ Just for comparison, let's also show the predictions we got when we predicted th
 ```{python}
 # do not worry about this code, it just generates the graph
 plt.figure(figsize = (10, 4))
-plt.scatter(red_blood_anemia['Hemoglobin'], red_blood_anemia['Anemia_dummy'], label = 'not anemic')
-plt.scatter(red_blood_anemia[red_blood_anemia['Appetite'] == 'yes']['Hemoglobin'], 
-                             red_blood_anemia[red_blood_anemia['Appetite'] == 'yes']['Anemia_dummy'], color = 'red',
+plt.scatter(hgb_app['Hemoglobin'], hgb_app['appetite_dummy'], label = 'not anemic')
+plt.scatter(hgb_app[hgb_app['Appetite'] == 'yes']['Hemoglobin'], 
+                             hgb_app[hgb_app['Appetite'] == 'yes']['appetite_dummy'], color = 'red',
             label = 'anemic')
-plt.scatter(red_blood_anemia['Hemoglobin'], predicted_probs_log_reg, 
+plt.scatter(hgb_app['Hemoglobin'], predicted_probs_log_reg, 
             label = 'predicted probability of anemia (logistic regression)', color = 'green')
-plt.scatter(red_blood_anemia['Hemoglobin'], prob_anemia, 
+plt.scatter(hgb_app['Hemoglobin'], prob_anemia, 
             label = 'predicted probability of anemia (linear regression)', color = 'orange')
 plt.xlabel('Hemoglobin')
 plt.ylabel('Anemia \n(0 = no, 1 = yes)')
@@ -886,11 +925,11 @@ Let's plot the predicted probabilities of having anemia, from statsmodels:
 ```{python}
 # do not worry about this code, it just generates the graph
 plt.figure(figsize = (10, 4))
-plt.scatter(red_blood_anemia['Hemoglobin'], red_blood_anemia['Anemia_dummy'], label = 'not anemic')
-plt.scatter(red_blood_anemia[red_blood_anemia['Appetite'] == 'yes']['Hemoglobin'], 
-                             red_blood_anemia[red_blood_anemia['Appetite'] == 'yes']['Anemia_dummy'], color = 'red',
+plt.scatter(hgb_app['Hemoglobin'], hgb_app['appetite_dummy'], label = 'not anemic')
+plt.scatter(hgb_app[hgb_app['Appetite'] == 'yes']['Hemoglobin'], 
+                             hgb_app[hgb_app['Appetite'] == 'yes']['appetite_dummy'], color = 'red',
             label = 'anemic')
-plt.scatter(red_blood_anemia['Hemoglobin'], sm_predictions,
+plt.scatter(hgb_app['Hemoglobin'], sm_predictions,
             label = 'predicted probability of anemia (statsmodels logistic regression)', color = 'cyan')
 plt.xlabel('Hemoglobin')
 plt.ylabel('Anemia \n(0 = no, 1 = yes)')
