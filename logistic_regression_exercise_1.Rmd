@@ -1,0 +1,389 @@
+---
+jupyter:
+  jupytext:
+    formats: ipynb,Rmd
+    text_representation:
+      extension: .Rmd
+      format_name: rmarkdown
+      format_version: '1.2'
+      jupytext_version: 1.10.1
+  kernelspec:
+    display_name: Python 3
+    language: python
+    name: python3
+---
+
+## Logistic Regression Exercise
+
+In this exercise we will perform linear regression and logistic regression on the Titanic dataset. This dataset contains information about passenger characteristics, and whether each passenger survived the disaster.
+
+First let's import the data:
+
+```{python}
+import numpy as np
+import pandas as pd
+# Safe settings for Pandas.
+pd.set_option('mode.chained_assignment', 'raise')
+# %matplotlib inline
+import matplotlib.pyplot as plt
+# Make the plots look more fancy.
+plt.style.use('fivethirtyeight')
+# Optimization function
+from scipy.optimize import minimize
+import statsmodels.api as sm
+
+# importing the data
+titanic = pd.read_csv('https://raw.githubusercontent.com/matthew-brett/cfd2020/master/data/titanic_clean.csv')
+
+titanic.head(10)
+```
+
+<!-- #region -->
+# Linear Regression with one predictor
+
+We are going to predict `survived` from `fare`. Were passengers who paid a higher fare more likely to survive? 
+
+First, let's see how well a linear regression model does at predicting `survived` from `fare`.
+
+
+*Question 1:*
+
+Create a dummy variable for `survived` and add it to the `titanic` dataframe. We will treat `survived == 'yes'` as the event of interest, so give this the label `1`. Label `survived == 'no'` with a `0`:
+<!-- #endregion -->
+
+```{python}
+titanic['survived_dummy'] = ...
+
+# do not delete the code below this point
+# show the dataframe
+titanic
+```
+
+*Question 2:*
+
+Store `fare` as a separate variable:
+
+```{python}
+fare = ...
+
+# do not delete the code below this point
+# show the fare data 
+fare
+```
+
+*Question 3:*
+
+Now, store `survived_dummy` as a separate variable:
+
+```{python}
+survived_dummy = ...
+```
+
+*Question 4:*
+
+To get a graphical idea of how `fare` relates to `survived`, let's plot them together.
+
+Create a scatterplot with `fare` on the x axis and `survived_dummy` on the y axis:
+
+```{python}
+titanic.plot(...
+```
+
+*Question 5:*
+
+Do you think it looks like there is a relationship between these two variables? How would you describe the relationship? (Rememeber that `survived_dummy == 1` means the passenger survived, `survived_dummy == 0` means they did not).
+
+Write your answer in the cell below:
+
+
+#### Your answer here...
+
+
+*Question 6:*
+
+Before we investigate this relationship with linear regression, we will need a function to calculate the sum of squared error, for any given intercept and slope, when we predict `survived_dummy` from `fare`.
+
+Write a function called `sos_error_for_minimize` to calculate the sum of squared error when predicting `survived_dummy` from `fare`. `sos_error_for_minimize` should take as its input a list containing an intercept and a slope:
+
+*Hint: you may want to consult the 'Using minimize' page for a refresher on how to do this: https://matthew-brett.github.io/cfd2020/mean-slopes/using_minimize.html*
+
+
+```{python}
+def sos_error_for_minimize(intercept_and_slope):
+   
+    intercept = intercept_and_slope[0]
+    slope = ...
+    predicted = ...
+    error = ...
+    return np.sum(...
+```
+
+*Question 7:*
+
+Now use minimize to find the intercept and slope pair which minimizes the sum of the squared error when predicting `survived` from `fare`, using the `sos_error_for_minimize` function:
+
+```{python}
+from scipy.optimize import minimize
+
+lin_reg_one = minimize(...
+                
+# do not delete the code below this point
+lin_reg_one
+```
+
+*Question 8:*
+
+Store the intercept and slope from `minimize` as separate variables. Call the intercept `lin_reg_one_intercept` and call the slope `lin_reg_one_slope`:
+
+```{python}
+lin_reg_one_intercept = ...
+
+lin_reg_one_slope = ...
+
+# do not delete the code below this point
+print('Intercept from minimize (linear regression) =', lin_reg_one_intercept)
+print('Slope from minimize (linear regression) =', lin_reg_one_slope)
+```
+
+*Question 9:*
+
+Let's compare the intercept and slope from `minimize` to the intercept and slope we get from Statsmodels. Complete the code in the cell below to predict `survived` from `fare` using Statsmodels linear regression (check under `coef` on the model summary shown below the cell, and compare these to the intercept/slope from minimize):
+
+*Hint: you may want to check the 'Simple and multiple regression' page, for a refresher on how to do this: https://matthew-brett.github.io/cfd2020/classification/single_multiple.html*
+
+*Note: `smf.ols()` is one way of performing linear regression with Statsmodels; `ols` stands for 'ordinary least squares':*
+
+```{python}
+import statsmodels.formula.api as smf
+
+mod = smf.ols(..., data = ...)
+
+mod = mod.fit()
+
+mod.summary()
+```
+
+How do the slope and intercept from Statsmodels compare to the ones we got from `minimize`?
+
+```{python}
+# run this cell to view the intercept/slope we got from minimize
+print('Intercept from minimize (linear regression) =', lin_reg_one_intercept)
+print('Slope from minimize (linear regression) =', lin_reg_one_slope)
+```
+
+*Question 10:*
+
+Recall that, when we use linear regression to predict probabilities, the predicted probability is calculated from:
+
+$
+\text{predicted probability} = intercept + slope * \text{fare}
+$
+
+Use the intercept and slope we got from `minimize` to calculate the predicted probability of survival. Store the result in a variable called `predictions_lin_reg_one`:
+
+```{python}
+predictions_lin_reg_one = ...
+
+# do not delete the code below this point
+predictions_lin_reg_one
+```
+
+*Question 11:*
+
+Let's plot these predictions against the original data. Create the same scatterplot as you did above, with `fare` on the x axis and `survived_dummy` on the y axis. The code at the bottom of the cell will add the predicted probabilities from linear regression to the graph (in gold):
+
+```{python}
+titanic.plot(...
+
+# do not change the code below this point, it will add the linear regression predictions to the graph
+plt.scatter(fare, predictions_lin_reg_one, color = 'gold');
+```
+
+You can see from the graph that for a `fare` of around 500, our linear regression model predicts a probability of survival greater than 1.
+
+Let's see if logistic regression does a better job.
+
+<!-- #region -->
+# Logistic Regression with one predictor
+
+
+Before we begin, let's do a brief recap of the difference between probability and odds ratios.
+
+The output of the cell below shows some of the values from `class` column of the `titanic` dataframe. These values are stored in a variable called `some_class_data`:
+<!-- #endregion -->
+
+```{python}
+# here are some of the elements of the 'class' column in the titanic dataframe
+some_class_data = titanic['class'].loc[100:109]
+
+some_class_data
+```
+
+*Question 12:*
+
+In the `some_class_data` series, what is the probability of a passenger being `1st` class? 
+
+Remember that probability is $\frac{\text{number of observations of interest}}{\text{total number of observations}}$
+
+Calculate the probability of being `1st` class in the `some_class_data` series. Store the result in a variable called `prob_first`.
+
+*Hint: you can use `np.count_nonzero()` to count the number of `1st` class passengers in `some_class_data`. You can use the `len()` function to count the total number of observations in `some_class_data`*
+
+
+```{python}
+prob_first = ...
+prob_first
+```
+
+*Question 13:*
+
+In the `some_class_data` series, what is the odds ratio of being `1st` class?
+
+Remember that if $p$ is the probability of the event of interest, the odds ratio of the event of interest is $\frac{p}{1 - p}$
+
+Calculate the odds ratio of being `1st` class in the `some_class_data` series, store the result in a variable called `odds_first`:
+
+```{python}
+odds_first = ...
+odds_first
+```
+
+Remember that logistic regression predicts the *log odds ratio* of the event of interest.
+
+To perform our logistic regression, let's define the functions we need.
+
+Read over each line and make sure you understand what it is doing.
+
+```{python}
+# define the functions we need
+
+def inv_logit(y):
+    """ Reverse logit transformation
+    """
+    odds_ratios = np.exp(y)  # Reverse the log operation.
+    return odds_ratios / (odds_ratios + 1)  # Reverse odds ratios operation; return probabilities
+
+
+def mll_logit_cost(intercept_and_slope, x, y):
+    """ Cost function for maximum log likelihood
+
+    Return minus of the log of the likelihood.
+    """
+    intercept, slope = intercept_and_slope
+    
+    # Make predictions for sigmoid.
+    predicted_log_odds = intercept + slope * x
+    pp_of_1 = inv_logit(predicted_log_odds)
+    
+    # Calculate predicted probabilities of the actual labels.
+    pp_of_correct_label = y * pp_of_1 + (1 - y) * (1 - pp_of_1)
+    
+    # Use logs to calculate log of the likelihood
+    log_likelihood = np.sum(np.log(pp_of_correct_label))
+    
+    # Ask minimize to find maximum by adding minus sign.
+    return -log_likelihood
+```
+
+*Question 14:*
+
+Use `minimize` to find the intercept and slope pair which gives the smallest negative log likelihood, when we predict `survive_dummy` from `fare`. Store the results in a variable called `log_reg_one`:
+
+*Hint: begin with a guessed intercept and guessed slope both around 0.1, otherwise the function may fail...*
+
+*Hint: the logistic regression cost function accepts more arguments than just the intercept and slope list, so you will need to use `args =` to give minimize the x and y values (in this case x = `fare` and y = `survived_dummy`)*
+
+```{python}
+log_reg_one = minimize(..., args = ...)
+
+log_reg_one
+```
+
+*Question 15:*
+
+Store the intercept and slope as separate variables. Call the intercept `log_reg_one_intercept` and call the slope `log_reg_one_slope`:
+
+```{python}
+log_reg_one_intercept = ...
+
+log_reg_one_slope = ...
+
+# do not alter the code below this point
+print('Intercept from minimize (logistic regression) =', log_reg_one_intercept)
+print('Slope from minimize (logistic regression) =', log_reg_one_slope)
+```
+
+*Question 16:*
+
+Let's compare these to the intercept and slope we get from Statsmodels.
+
+Perform a logistic regression, using `smf.logit()`, to predict `survived_dummy` from `fare`:
+
+```{python}
+mod = smf.logit(..., data = ...)
+
+mod = mod.fit()
+
+mod.summary()
+```
+
+How do the intercept and slope from Statsmodels compare to the ones we got from `minimize`?
+
+```{python}
+# run this cell to show the intercept and slope we got from minimize
+print('Intercept from minimize (logistic regression) =', log_reg_one_intercept)
+print('Slope from minimize (logistic regression) =', log_reg_one_slope)
+```
+
+*Question 17:*
+
+We can use the intercept and slope from logistic regression to predict the log odds ratio of survival, using:
+
+$ \text{predicted log odds ratio} = intercept + slope * \text{fare} $
+
+Calculate the predicted log odds ratio of survival for each passenger. Store these predictions in a variable called `predictions_log_reg_one`:
+
+```{python}
+predictions_log_reg_one = ...
+
+predictions_log_reg_one
+```
+
+*Question 18:*
+
+The predicted log odds ratios are hard to interpret. Convert them to probabilities, and store the probabilities in the `
+predictions_log_reg_one` variable.
+
+*Hint: the function you need to do this is above. You need to invert the logit transformation...*
+
+```{python}
+predictions_log_reg_one = ...
+```
+
+*Question 19:*
+
+Let's plot the probabilities, alongside the original data.
+
+Create another scatterplot with `fare` on the x axis and `survived_dummy` on the y axis.
+
+Then run the cell below. the code at the bottom of the cell will add the predicted probabilities from logistic regression to the graph (in gold).
+
+```{python}
+# plot the logistic reg probabilities
+
+# use plot from earlier, run code below to add your predictions
+titanic.plot(...
+
+
+# do not alter the code below this point, it will add the predicted probabilities to the graph
+plt.scatter(fare, predictions_log_reg_one, color = 'gold');
+```
+
+Do you think this model gives a better fit than the linear regression model? Write your answer in the cell below:
+
+
+#### Your answer here...
+
+```{python}
+
+```
