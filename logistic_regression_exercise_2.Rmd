@@ -1,0 +1,543 @@
+---
+jupyter:
+  jupytext:
+    formats: ipynb,Rmd
+    text_representation:
+      extension: .Rmd
+      format_name: rmarkdown
+      format_version: '1.2'
+      jupytext_version: 1.10.1
+  kernelspec:
+    display_name: Python 3
+    language: python
+    name: python3
+---
+
+## Logistic Regression Exercise 2
+
+In this exercise we will perform linear regression and logistic regression on the Titanic dataset. But this time we will use multiple predictor variables.
+
+Let's import the data:
+
+```{python}
+import numpy as np
+import pandas as pd
+# Safe settings for Pandas.
+pd.set_option('mode.chained_assignment', 'raise')
+# %matplotlib inline
+import matplotlib.pyplot as plt
+# Make the plots look more fancy.
+plt.style.use('fivethirtyeight')
+
+# importing the data
+titanic = pd.read_csv('https://raw.githubusercontent.com/matthew-brett/cfd2020/master/data/titanic_clean.csv')
+
+titanic.head(10)
+```
+
+# Linear Regression with two predictors
+
+We are going to predict `survived` from `fare` and `age`.
+
+*Question 1:*
+
+Complete the cell below to create a dummy variable for `survived`. Call the dummy variable `survived_dummy`. Again, we will label `survived == 'yes'` as `1` and `survived == 'no'` as `0`.
+
+```{python}
+titanic['survived_dummy'] = titanic['survived'].replace(...)
+
+# show the dataframe
+titanic
+```
+
+*Question 2:* 
+
+Store `age`, `fare` and `survived_dummy` as separate python variables:
+
+```{python}
+age = ...
+
+fare = ...
+
+survived_dummy = ...
+```
+
+*Question 3:*
+
+Let's look graphically for the relationship between these variables. 
+
+In the cell below, create a scatterplot with `age` on the x axis and `survived_dummy` on the y axis:
+
+```{python}
+titanic.plot(...);
+```
+
+In the cell below, create a scatterplot with `fare` on the x axis and `survived_dummy` on the y axis:
+
+```{python}
+titanic.plot(...);
+```
+
+Can you see any relationships between each predictor and `survived_dummy`?
+
+For example:
+
+*Do passengers who survived seem, on average, to be older?*
+
+*Do passengers who survived seem, on average, to have paid lower fares?*
+
+Run the cell below to have a look at a 3D plot of these variables.
+
+*Note: you can rotate the graph by changing the value of `azim` and re-running the cell:*
+
+```{python}
+# run this cell, do not worry about the code, it just generates the plot. BUT if you want to, change the value of `azim` and 
+# re-run the cell to rotate the plot, to get a different view of the data
+
+azim = 105 # if you want to re-set the graph, the original `azim` value wsa 105
+
+# do not alter the code below this point
+from mpl_toolkits.mplot3d import Axes3D
+
+fig = plt.figure(figsize = (10,8))
+ax = fig.add_subplot(111, projection='3d')
+ax.scatter(age[survived_dummy == 1], fare[survived_dummy == 1], survived_dummy[survived_dummy == 1],
+                                           label = 'survived', color = 'red')
+ax.scatter(age[survived_dummy == 0], fare[survived_dummy == 0], survived_dummy[survived_dummy == 0],
+           label = 'died', color = 'blue')
+plt.xlabel('\nAge')
+plt.ylabel('\nFare')
+plt.legend(loc='upper center', bbox_to_anchor=(1.6, 1), ncol = 3)
+ax.set_zlabel('\n\nSurvived\n 1 == \'yes\' ; 0 ==\'no')
+ax.set_zticks([0,1])
+ax.view_init(elev= 25, azim = azim)
+plt.show()
+```
+
+In the cell below, describe any patterns that you see from the graphs above:
+
+
+##### Your answer here...
+
+
+*Question 4:*
+
+To use linear regression to predict `survived_dummy` from `age` and `fare`; we're going to need a function that calculates the sum of squared error, but that can accept two slopes: one slope for `age` and one slope for `fare`.
+
+In this model, our predicted probability of `survived_dummy == 1` is:
+
+$
+\text{predicted probability} = intercept + slope_{age} * \text{age} + slope_{fare} * \text{fare}
+$
+
+The function below is currently written so that it returns the sum of squared error when predicting `survived_dummy` from `age` only. Modify it so that it also expects a slope for `fare`, and uses this slope (as well as the slope for `age`) to generate its predictions:
+
+```{python}
+def sos_two_slopes(intercept_and_slopes):
+    
+    intercept = intercept_and_slopes[0]
+    
+    slope_age = intercept_and_slopes[1]
+    
+    slope_fare = ...
+    
+    prediction = intercept + slope_age * age + ...
+    
+    error = survived_dummy - prediction
+    
+    return np.sum(error**2)
+```
+
+```{python}
+# run this cell, it should return 8115450.52203827 if your function is working correctly
+
+sos_two_slopes([1,1,1])
+```
+
+*Question 5:*
+
+Use `minimize` and the `sos_two_slopes()` function to find the values of the intercept, `age` slope and `fare` slope which minimize the sum of squared error.
+
+Store the results in a variable called `mul_lin_reg`:
+
+```{python}
+from scipy.optimize import minimize
+
+mul_lin_reg = minimize(...)
+
+mul_lin_reg
+```
+
+*Question 6:*
+
+Store the intercept, `age` slope and `fare` slope from `mul_lin_reg` in separate variables (called `intercept_lin`, `slope_age_lin` and `slope_fare_lin`):
+
+```{python}
+intercept_lin = ...
+
+slope_age_lin = ...
+
+slope_fare_lin = ...
+
+
+# do not alter the code below this point
+
+print('Intercept from minimize (linear regression) = ', intercept_lin)
+print('Age slope from minimize (linear regression) = ', slope_age_lin)
+print('Fare slope from minimize (linear regression) = ', slope_fare_lin)
+```
+
+*Question 7:*
+
+Check the values you got from `minimize` against those found by Statsmodels.
+
+Complete the code in the cell below to use `smf.ols()` to predict `survived_dummy` from `age` and `fare`:
+
+```{python}
+import statsmodels.formula.api as smf
+
+mod = smf.ols(..., data = ...)
+
+mod = mod.fit()
+
+mod.summary()
+```
+
+Look under `coef` in the summary table above, and compare these values to the intercept and slopes from `minimize`:
+
+```{python}
+print('Intercept from minimize (linear regression) = ', intercept_lin)
+print('Age slope from minimize (linear regression) = ', slope_age_lin)
+print('Fare slope from minimize (linear regression) = ', slope_fare_lin)
+```
+
+*Question 8:*
+
+Use the formula below to calculate the predicted probability of survival, using the intercept and slopes we have just obtained:
+
+$
+\text{predicted probability} = intercept + slope_{age} * \text{age} + slope_{fare} * \text{fare}
+$
+
+Store the predicted probabilities in a variable called `predictions_lin`:
+
+```{python}
+predictions_lin = intercept_lin + ... * age  + ...
+```
+
+Run the cell below to have a look at the predicted probabilities, from linear regression:
+
+```{python}
+# run this cell, do not worry about the code, it just generates the plot. BUT if you want to, change the value of `azim` and 
+# re-run the cell to rotate the plot, to get a different view of the data
+
+azim = 205   # if you want to re-set the graph, the original `azim` value wsa 205
+
+# do not alter the code below this point
+from mpl_toolkits.mplot3d import Axes3D
+
+fig1 = plt.figure(figsize = (10,8))
+ax1 = fig1.add_subplot(111, projection='3d')
+
+ax1.scatter(age[predictions_lin >= 0.5], fare[predictions_lin >= 0.5], predictions_lin[predictions_lin >= 0.5], 
+           label = 'survived (predicted, linear regression)', color = 'darkred')
+                                           
+ax1.scatter(age[predictions_lin < 0.5], fare[predictions_lin < 0.5], predictions_lin[predictions_lin < 0.5],
+           label = 'died (predicted, linear regression)', color = 'darkblue')
+plt.xlabel('\nAge')
+plt.ylabel('\nFare')
+plt.legend(loc='upper center', bbox_to_anchor=(1.6, 1), ncol = 3)
+ax1.set_zlabel('\nPredicted Probability of Survival \n(Linear Regression)')
+ax1.view_init(elev= 25, azim = azim)
+plt.show()
+```
+
+Remember that the predictions from any sort of regression model try to capture the systematic patterns in the data. In a rough sense, they make clearer any pattern that is in the original data.
+
+Ask yourself the same questions as earlier, but about the predictions e.g.:
+
+*Do passengers who are predicted to survive seem, on average, to be older?*
+
+*Do passengers are predicted to survive seem, on average, to have paid lower fares?*
+
+*Note: you may be wondering why the data points are not all either at 0 or 1 on the vertical axis - as they were in the first 3D plot. This is because they now represent probabilities, rather than the `survived_dummy` values. Where the predicted probability is above 0.5, the model predicts the passenger will survive, where it is less than 0.5 it predicts they will not.*  
+
+In the cell below, describe any patterns you see in the 3D graph of the predicted probabilities:
+
+
+#### Your answer here:
+
+
+## Logistic regression with multiple predictors
+
+In the 3D graph of the predictions from linear regression, you can see that some of the predicted probabilities are greater than 1. Probability, by definition, must be between 0 and 1, so a linear regression model is not very appropriate for these data.
+
+Let's grab the functions from the logistic regression notebook:
+
+```{python}
+# define the functions we need
+
+def inv_logit(y):
+    """ Reverse logit transformation
+    """
+    odds_ratios = np.exp(y)  # Reverse the log operation.
+    return odds_ratios / (odds_ratios + 1)  # Reverse odds ratios operation; return probabilities
+
+
+def mll_logit_cost(intercept_and_slope, x, y):
+    """ Cost function for maximum log likelihood
+
+    Return minus of the log of the likelihood.
+    """
+    intercept, slope = intercept_and_slope
+    
+    # Make predictions for sigmoid.
+    predicted_log_odds = intercept + slope * x
+    pp_of_1 = inv_logit(predicted_log_odds)
+    
+    # Calculate predicted probabilities of the actual labels.
+    pp_of_correct_label = y * pp_of_1 + (1 - y) * (1 - pp_of_1)
+    
+    # Use logs to calculate log of the likelihood
+    log_likelihood = np.sum(np.log(pp_of_correct_label))
+    
+    # Ask minimize to find maximum by adding minus sign.
+    return -log_likelihood
+```
+
+*Question 9:*
+
+We need to adapt the `mll_logit_cost()` function, so that it accepts slopes for multiple predictors, rather than just one.
+
+This is a bit tricky, but is simpler than it seems.
+
+*Only the inputs of the function, how it unpacks the inputs, and the `predicted_log_odds` calculation need to change.*
+
+The cost function above, for one slope, took three inputs: `intercept_and_slope`, `x` and `y`.
+
+`x` is the predictor variable, `y` is the outcome dummy variable.
+
+The prediction in the cost function for one slope is calculated by:
+
+$ \text{predicted_log_odds} = intercept + slope * x $
+
+The adapted function, which we will call `mll_logit_cost_multiple`, needs to take four inputs: `intercept_and_slopes`, `x1`, `x2` and `y`.
+
+`x1` and `x2` are the two predictors (which in our case will be `age` and `fare`).
+
+The prediction in the adapted function should be calculated by:
+
+$ \text{predicted_log_odds} = intercept + slope_1 * x1 + slope_2 * x2 $
+
+The inputs of the function have already been adapted for you:
+
+```{python}
+def mll_logit_cost_multiple(intercept_and_slopes, x1, x2, y):
+    """ Cost function for maximum log likelihood
+
+    Return minus of the log of the likelihood.
+    """
+    # THIS NEEDS TO CHANGE
+    intercept, slope_1 = intercept_and_slopes
+    
+    # Make predictions for sigmoid (THIS NEEDS TO CHANGE)
+    predicted_log_odds = intercept + slope_1 * x1 + ...
+    
+    # the code below this point can stay the same
+    pp_of_1 = inv_logit(predicted_log_odds)
+    # Calculate predicted probabilities of actual labels.
+    pp_of_correct_label = y * pp_of_1 + (1 - y) * (1 - pp_of_1)
+    # Use logs to calculate log of the likelihood
+    log_likelihood = np.sum(np.log(pp_of_correct_label))
+    # Ask minimize to find maximum by adding minus sign.
+    return -log_likelihood
+```
+
+Run the cell below to test your function with a guess of `[0.1, 0.1, 0.1]` for the intercept, `age` slope and `fare` slope.
+
+The function should return 4115.976827302091 if you have adapted it correctly:
+
+```{python}
+# run this cell to check your function
+mll_logit_cost_multiple([0.1, 0.1, 0.1], age, fare, survived_dummy)
+```
+
+*Question 10:*
+
+Use `minimize` to perform a logistic regression, predicting `survived_dummy` from `age` and `fare`.
+
+*Note: keep your initial guesses around 0.1, otherwise the function will fail.*
+
+Remember that, aside from the list containing the intercept and slopes, any additional arguments which the function expects as input will need to be passed to `minimize` using the `args = ()` argument:
+
+```{python}
+mul_log_reg = minimize(..., args = ...)
+
+mul_log_reg
+```
+
+*Question 11:*
+
+Store the intercept, `age` slope and `fare` slope from `minimize` in separate variables. Call the variables `intercept_log`,
+`slope_age_log` and `slope_fare_log`.
+
+```{python}
+intercept_log = ...
+
+slope_age_log = ...
+
+slope_fare_log = ...
+
+# do not alter the code below this point
+
+print('Intercept from minimize (logistic regression) = ', intercept_log)
+print('Age slope from minimize (logistic regression) = ', slope_age_log)
+print('Fare slope from minimize (logistc regression) = ', slope_fare_log)
+```
+
+*Question 12:*
+
+Again, let's check the intercept and slope from `minimize` against those from Statsmodels.
+
+Complete the code in the cell below to use `smf.logit()` to predict `survived_dummy` from `age` and `fare`:
+
+```{python}
+mod = smf.logit(..., data = ...)
+
+mod = mod.fit()
+
+mod.summary()
+```
+
+Run the cell below to compare the parameter estimates from Statsmodels (under `coef` in the summary table) to those from `minimize`:
+
+```{python}
+print('Intercept from minimize (logistic regression) = ', intercept_log)
+print('Age slope from minimize (logistic regression) = ', slope_age_log)
+print('Fare slope from minimize (logistc regression) = ', slope_fare_log)
+```
+
+## A quick note on interpreting the intercept and slope(s) in logistic regression
+
+The intercept tells us the predicted log odds ratio of the outcome of interest when all the predictors == 0. So, in this case it us the predicted log odds ratio of `survived_dummy == 1` for a passenger with `age == 0` and `fare == 0`. 
+
+The slopes for each predictor tell us how much the predicted log odds ratio *changes* for a one unit increase in the predictor, controlling for the effect of the other predictors. 
+
+The negative coefficient for `age` tells us that the predicted log odds ratio of survival gets smaller as `age` increases. The positive coefficient for `fare` tells us that the predicted log odds ratio of survival increases as `fare` increases.
+
+To help us interpret these coefficents, we can convert them to odds ratios (rather than log odds ratios).
+
+We do this by raising `e` to the power of each slope:
+
+```{python}
+print('Age slope (odds ratio):', np.exp(slope_age_log))
+print('Fare slope (odds ratio):', np.exp(slope_fare_log))
+```
+
+<!-- #region -->
+This means that for every 1 unit increase in `age`, the odds ratio of survival is about 0.98 times as large, so it is getting smaller by about 2% as `age` increases.
+
+For every 1 unit increase in `fare` the odds ratio of survival is about 1.01 times as large, so it is getting larger by about 1% as `fare` incrases.
+
+So our model has found that older passengers and passengers who paid lower fares are less likely to survive.
+
+
+*Question 14:*
+
+Use the formula below to calculate the predicted *log odds ratio* of survival for each passenger:
+
+$
+\text{predicted log odds ratio} = intercept + slope_{age} * \text{age} + slope_{fare} * \text{fare}
+$
+
+Store the predicted log odds ratios in a variable called `predicted_log_odds`:
+<!-- #endregion -->
+
+```{python}
+predicted_log_odds = intercept_log + slope_age_log * ...  + ...
+```
+
+*Question 15:*
+
+The predictions are much more interpretable if we convert them to probabilities. In the cell below, convert the predictions to probabilities, and store the result in a variable called `predicted_probs_log_reg`.
+
+*Hint: the function you need to do this is already in this notebook...you need to invert the logit transformation....*:
+
+```{python}
+predicted_probs_log_reg = ...
+```
+
+Run the cell below to plot the predicted probabilities from logistic regression, along with `fare` and `survived_dummy`:
+
+```{python}
+# do not worry about the code in this cell, it just generates the plot
+def plot_survive_one_pred(df, predictor):
+    # Build plot, add custom labels.
+    colors = titanic['survived'].replace(['yes', 'no'], ['red', 'blue'])
+    df.plot.scatter(predictor, 'survived_dummy', c=colors)
+    plt.ylabel('Survived\n0 = no, 1 = yes')
+    plt.yticks([0,1]);  # Just label 0 and 1 on the y axis.
+    # Put a custom legend on the plot.  This code is a little obscure.
+    plt.scatter([], [], c='red', label='survived')
+    plt.scatter([], [], c='blue', label='died')
+    # Show the legend
+    plt.legend(loc = 'center right');
+plot_survive_one_pred(titanic, 'fare')
+plt.scatter(fare, predicted_probs_log_reg, color = 'gold', label = 'prediction (log reg)')
+plt.legend()
+fine_x = np.linspace(np.min(fare), np.max(fare), 1000)
+fine_y = intercept_log + slope_fare_log * fine_x
+fine_y = inv_logit(fine_y)
+plt.plot(fine_x, fine_y, linewidth=1, linestyle=':');
+```
+
+Run the cell below to plot the predicted probabilities, along with `age` and `survived_dummy`:
+
+*Note: the predictions from logistic regression, in this instance, do not form the classic sigmoid shape, however, they are limited to being between 0 and 1*
+
+```{python}
+# do not worry about the code in this cell, it just generates the plot
+plot_survive_one_pred(titanic, 'age')
+plt.scatter(age, predicted_probs_log_reg, color = 'gold', label = 'prediction (log reg)')
+plt.legend()
+fine_x = np.linspace(np.min(age), np.max(age), 1000)
+fine_y = intercept_log + slope_age_log * fine_x
+fine_y = inv_logit(fine_y)
+plt.plot(fine_x, fine_y, linewidth=1, linestyle=':');
+```
+
+Do you think the patterns shown in these graphs are consistent with the slopes that `minimize` and Statsmodels found?
+
+Remember that the slopes tell us that the odds ratio of survival gets smaller as `age` increases, and larger as `fare` increases. 
+
+*Note: the odds ratio of survival and the probability of survival are related, as one increases so will the other, and vice versa.*
+
+Run the cell below to see a 3D plot of the predicted probabilities, and see if you think you can see this pattern.
+
+```{python}
+# run this cell, do not worry about the code, it just generates the plot. BUT if you want to, change the value of `azim` and 
+# re-run the cell to rotate the plot, to get a different view of the data
+
+azim = 205   # if you want to re-set the graph, the original `azim` value wsa 205
+
+# do not alter the code below this point
+
+fig2 = plt.figure(figsize = (10,8))
+ax2 = fig2.add_subplot(111, projection='3d')
+
+ax2.scatter(age[predicted_probs_log_reg >= 0.5], fare[predicted_probs_log_reg >= 0.5], predicted_probs_log_reg[predicted_probs_log_reg >= 0.5], 
+           label = 'survived (predicted, logistic regression)', color = 'darkred')
+                                           
+ax2.scatter(age[predicted_probs_log_reg < 0.5], fare[predicted_probs_log_reg < 0.5], predicted_probs_log_reg[predicted_probs_log_reg< 0.5],
+           label = 'died (predicted, logistic regression)', color = 'darkblue')
+plt.xlabel('\nAge')
+plt.ylabel('\nFare')
+plt.legend(loc='upper center', bbox_to_anchor=(1.6, 1), ncol = 3)
+ax2.set_zlabel('\nPredicted Probability of Survival \n(Logistic Regression)')
+ax2.view_init(elev= 25, azim = azim)
+plt.show()
+```
+
+```{python}
+
+```
