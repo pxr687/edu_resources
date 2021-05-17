@@ -1,0 +1,153 @@
+---
+jupyter:
+  jupytext:
+    formats: ipynb,Rmd
+    text_representation:
+      extension: .Rmd
+      format_name: rmarkdown
+      format_version: '1.2'
+      jupytext_version: 1.10.1
+  kernelspec:
+    display_name: Python 3
+    language: python
+    name: python3
+---
+
+Here is just a demo, using the familiar functions from https://matthew-brett.github.io/cfd2020/mean-slopes/mean_and_slopes.html to predict events (number of accidents, number of births) as a function of time, for a single country.
+
+`A` is a simulated country, and the datapoint at each timepoint is a simulated number of events that occured in that timepoint.
+
+```{python}
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# creating some fake time series data
+
+data_1 = np.abs(np.arange(30) + np.random.normal(0, 5, size = 30)).astype('int')
+
+data_1 = np.append(data_1, np.arange(30, 0, -1) + np.random.normal(0, 2, size = 30)).astype('int')
+
+
+df = pd.DataFrame({'A': data_1})
+
+df.index.rename('Time point:', inplace = True)
+
+df.head(10)
+```
+
+We can see that this data has a clear change in trend. If this change occured when there was a big change in the country, we might conclude that the change caused the change in the trend. Let's say the events are `number of births per 1000 people` and at timepoint 27, the government introduced new taxes that disincentivized having children. It definitely looks like this policy might have led to a reduced number of births. 
+
+We can use linear regression quantify the change in trend.
+
+```{python}
+df.plot()
+plt.plot([27,27], [0, 38], label = 'BIG CHANGE')
+plt.ylabel('number of births per 1000 people')
+plt.legend();
+```
+
+Creating a dataframe of the time series points BEFORE the big change:
+
+```{python}
+before_change = df.loc[0 : 27].copy()
+
+before_change.plot();
+```
+
+Creating a dataframe of the time series points AFTER the big change:
+
+```{python}
+after_change = df.loc[27:].copy()
+
+after_change.plot();
+```
+
+We can treat the timepoints as the predictor variable, and look at the number of events as the outcome variable. (*NB:* if the dates are in the datetime format (e.g. https://pandas.pydata.org/docs/reference/api/pandas.to_datetime.html), then they will need to be converted to ints or floats before using them as a predictor...).
+
+If we perform a linear regression over a particular time period, and the slope is positive, it means that the number of events is increasing in that time period. A negative slope means the number of events is decreasing in that time period.
+
+```{python}
+# adapting the sum of squared error function from https://matthew-brett.github.io/cfd2020/mean-slopes/using_minimize.html
+
+def sos_error_for_minimize(intercept_and_slope, time, events):
+    # intercept_and_slope has two elements, the intercept and the slope.
+    # time is the series of timepoints to predict from
+    # events are the number of events in each timepoint
+    intercept = intercept_and_slope[0]
+    slope = intercept_and_slope[1]
+    predicted = intercept + time * slope
+    error =  events - predicted
+    return np.sum(error ** 2)
+```
+
+```{python}
+# testing the function on the whole timeseries (df.index contains the time points, df['A'] contains the number of events for
+# each timepoint)
+sos_error_for_minimize([1,1], df.index, df['A'])
+```
+
+If we minimize the sum of squares function on the timepoints BEFORE the big change:
+
+```{python}
+from scipy.optimize import minimize
+
+min_res_before = minimize(sos_error_for_minimize, [1, 1], args = (before_change.index, before_change['A']))
+min_res_before
+```
+
+And then we minimize the sum of squares function on the timepoints AFTER the big change:
+
+```{python}
+min_res_after = minimize(sos_error_for_minimize, [1, 1], args = (after_change.index, after_change['A']))
+min_res_after
+```
+
+```{python}
+print('The slope BEFORE the change =', min_res_before.x[1])
+print('The slope AFTER the change =', min_res_after.x[1])
+```
+
+A positive slope means that, on average, the number of births increased for a 1-unit increase in time.
+
+A negative slope means that, on average, the number of births decreased for a 1-unit increase in time.
+
+We could then test the significance of each slope by shuffling the datapoints around, as shown in https://matthew-brett.github.io/cfd2020/mean-slopes/inference_on_slopes.html 
+
+E.g. to test the slope of the data from BEFORE the big change in tax policy:
+
+```{python}
+print('Original data:', before_change['A'].values)
+```
+
+```{python}
+print('Shuffled data:', np.random.permutation(before_change['A']))
+```
+
+```{python}
+# adapted from https://matthew-brett.github.io/cfd2020/mean-slopes/inference_on_slopes.html
+
+n_samples = 1000
+fake_slopes = np.zeros(n_samples)
+for i in np.arange(n_samples):
+    shuffled_before = np.random.permutation(before_change['A'])
+    fake_inter, fake_slope =  minimize(sos_error_for_minimize, [1, 1], 
+                                       args = (before_change.index, shuffled_before)).x
+                                      
+    fake_slopes[i] = fake_slope
+```
+
+```{python}
+plt.hist(fake_slopes)
+plt.plot(min_res_before.x[1], 1, 'o', markersize = 10, color = 'red')
+plt.title('Fake slopes')
+```
+
+```{python}
+p = np.count_nonzero(fake_slopes >= min_res_before.x[1]) / n_samples
+p
+```
+
+```{python}
+
+```
