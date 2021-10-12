@@ -6,7 +6,7 @@ jupyter:
       extension: .Rmd
       format_name: rmarkdown
       format_version: '1.2'
-      jupytext_version: 1.10.1
+      jupytext_version: 1.10.0
   kernelspec:
     display_name: Python 3
     language: python
@@ -15,9 +15,9 @@ jupyter:
 
 # What is a slope?
 
-The graph below shows the x axis, the y axis and the origin. Any point on the graph can be specified by an x coordinate and a y coordinate. For instance, the origin is the point where x = 0 and y = 0. 
+The graph below shows the $x$ axis, the $y$ axis and the *origin*. Any point on the graph can be specified by an $x$ coordinate and a $y$ coordinate. For instance, the origin is the point where `x = 0` and `y = 0`. 
 
-Note: theoretically these axes (and all the lines we will plot on them) run infinitely in the directions they travel in. However, as your screen isn't infinite, they are truncated for the purpose of display).
+Note: theoretically these axes (and all the lines we will plot on them) run infinitely in the directions they travel in. However, as your screen isn't infinite, they are truncated for the purpose of display.
 
 ```{python}
 # do not worry about any of the code in this notebook, it is just here to generate the graphs
@@ -25,79 +25,102 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.stats
 import pandas as pd
-plt.figure(figsize = (8,8))
-x_axis = np.arange(-10, 11)
-y_axis = np.arange(-10, 11)
-plt.plot(x_axis, np.repeat(0, len(x_axis)), color = 'black')
-plt.plot(np.repeat(0, len(y_axis)), y_axis, color = 'black')
-plt.xlabel('X Axis')
-plt.ylabel('Y Axis')
-plt.plot(0,0, 'o', color = 'black', markersize = 8, label = 'The Origin (x = 0, y = 0)')
-plt.xticks(np.arange(np.min(x_axis), np.max(x_axis)+1, 1))
-plt.yticks(np.arange(np.min(y_axis), np.max(y_axis)+1, 1))
-plt.legend()
-plt.show()
+
+# Make plots look a little bit more fancy
+plt.style.use('fivethirtyeight')
+
+# a fucntion for a plot showing the origin, with arguments to adjust the display options as needed by this tutorial
+def axes_func(fig_size_1, fig_size_2, low_ax_lim, up_ax_lim, new_fig = True, five_ticks = False, double_y = False,
+             five_ticks_y = False):
+  
+    # create a new figure?
+    if new_fig == True:
+        plt.figure(figsize = (fig_size_1,fig_size_2))
+        
+    # create points for the x axis
+    x_axis = np.arange(low_ax_lim, up_ax_lim)
+    
+    # should the y axis been double the length of the x axis?
+    if double_y == False:
+        y_axis = np.arange(low_ax_lim, up_ax_lim)
+    else:
+        y_axis = np.arange(low_ax_lim*2, up_ax_lim*2)
+        
+    # plot and label the axes and the origin
+    plt.plot(x_axis, np.repeat(0, len(x_axis)), color = 'black')
+    plt.plot(np.repeat(0, len(y_axis)), y_axis, color = 'black')
+    plt.xlabel('X Axis')
+    plt.ylabel('Y Axis')
+    plt.plot(0,0, 'o', color = 'black', markersize = 14, label = 'The Origin (x = 0, y = 0)')
+    
+    # set the limits of the axes
+    plt.xlim(min(x_axis), max(x_axis))
+    plt.ylim(min(y_axis), max(y_axis))
+    
+    # show the axes ticks in intervals of 5?
+    if five_ticks == False:
+        plt.xticks(np.arange(np.min(x_axis), np.max(x_axis)+1, 1))
+        plt.yticks(np.arange(np.min(y_axis), np.max(y_axis)+1, 1))
+    else:
+        plt.xticks(np.arange(np.min(x_axis), np.max(x_axis)+1, 5))
+        plt.yticks(np.arange(np.min(y_axis), np.max(y_axis)+1, 5))
+    if five_ticks_y == True:
+        plt.yticks(np.arange(np.min(y_axis), np.max(y_axis)+1, 5))
+    
+    # show the legend
+    plt.legend()
+    
+    
+axes_func(8,8,-10,11);    
 ```
 
-(Note: you may be more familiar with seeing the numbers appear on the axes, as in this picture: https://www.maplesoft.com/support/help/content/2092/ecplot162.gif ;
-The graphs we will plot show the numbers on the side of the figure,  rather than on the axes themselves. This shows the same information, just in a different way.)
+Note: you may be more familiar with seeing the numbers appear on the axes, as in this picture:
+<br>
+![](origin.gif) 
+<br>
+<center><i>(Image from https://www.varsitytutors.com/hotmath/hotmath_help/topics/graphing-scale-and-origin)<center></i>
+<br>
+
+The graphs we will plot in this notebook display the numbers on the side of the figure, rather than on the axes themselves. This shows the same information, just in a different way.
 
 These axes provide us a way of visualising the relationship between two sets of data. Why is this important?:
 
-<i> 'The dominant task of the human cortex is to extract visual information from the activity patterns on the retina. Our visual system is therefore exceedingly good at detecting patterns in visualized data sets. As a result, one can almost always see what is happening before it can be demonstrated through a quantitative analysis of the data. Visual data displays are also helpful at finding extreme data values, which are often caused by [...] mistakes in the data acquisition.' (p.51, Haslwanter, T., 2016, An Introduction to Statistics with Python) </i>
+><i><center>'The dominant task of the human cortex is to extract visual information from the activity patterns on the retina. Our visual system is therefore exceedingly good at detecting patterns in visualized data sets. As a result, one can almost always see what is happening before it can be demonstrated through a quantitative analysis of the data. Visual data displays are also helpful at finding extreme data values, which are often caused by [...] mistakes in the data acquisition.' </i> <br> (page 51, Haslwanter, 2016, An Introduction to Statistics with Python)<center>
 
-Let's plot the point (x = 5, y = 5), it is shown as a red 'x' on the graph below:
+Let's plot the point `(x = 5, y = 5)`; it is shown as a red 'x' on the graph below:
 
 ```{python}
 # do not worry about any of the code in this notebook, it is just here to generate the graphs
-plt.figure(figsize = (8,8))
-x_axis = np.arange(-10, 11)
-y_axis = np.arange(-10, 11)
-plt.plot(x_axis, np.repeat(0, len(x_axis)), color = 'black')
-plt.plot(np.repeat(0, len(y_axis)), y_axis, color = 'black')
-plt.xlabel('X Axis')
-plt.ylabel('Y Axis')
-plt.plot(0,0, 'o', color = 'black', markersize = 8, label = 'The Origin (x = 0, y = 0)')
-plt.plot(5,5, 'x', color = 'darkred', markersize = 8, label = '(x = 5, y = 5)')
-plt.xticks(np.arange(np.min(x_axis), np.max(x_axis)+1, 1))
-plt.yticks(np.arange(np.min(y_axis), np.max(y_axis)+1, 1))
-plt.legend()
-plt.show()
+axes_func(8,8,-10,11)
+plt.plot(5,5, 'X', color = 'darkred', markersize = 12, label = '(x = 5, y = 5)')
+plt.legend();
 ```
 
 In a sense, the simplest line we can draw is one where, for any point on the line, the x and y coordinate are the same number. 
 
-So when x = 0 then y = 0,
+So when `x = 0` then `y = 0`,
 
-when x = 1 then y = 1, 
+when `x = 1` then `y = 1`, 
 
-when x = 5 then y = 5, 
+when `x = 5` then `y = 5`, 
 
-when x = 10 then y = 10 and so on.
+when `x = 10` then `y = 10` and so on.
 
-The equation for this line is ```y = x```, and this line is shown in red below.
+The equation for this line is `y = x`, and this line is shown in red below.
 
 ```{python}
 # do not worry about any of the code in this notebook, it is just here to generate the graphs
-x = np.arange(-8, 9)
+x = np.arange(-10, 11)
 y = x
-plt.figure(figsize = (8,8))
-plt.plot(x_axis, np.repeat(0, len(x_axis)), color = 'black')
-plt.plot(np.repeat(0, len(y_axis)), y_axis, color = 'black')
-plt.plot(0,0, 'o', color = 'black', markersize = 8, label = 'The Origin (x = 0, y = 0)')
-plt.xlabel('X Axis')
-plt.ylabel('Y Axis')
-plt.plot(5,5, 'x', color = 'darkred', markersize = 8, label = '(x = 5, y = 5)')
+axes_func(8,8,-10,11)
 plt.plot(x,y, color = 'red', label = 'y = x')
-plt.xticks(np.arange(np.min(x_axis), np.max(x_axis)+1, 1))
-plt.yticks(np.arange(np.min(y_axis), np.max(y_axis)+1, 1))
-plt.legend()
-plt.show()
+plt.plot(5,5, 'X', color = 'darkred', markersize = 12, label = '(x = 5, y = 5)')
+plt.legend();
 ```
 
-You'll notice that the point (x = 5, y = 5) is on this line. A line can be thought of as a collection of infinitely close points. The equation for a line - in this case ```y = x``` - tells you which points are on the line. 
+You'll notice that the point `(x = 5, y = 5)` is on this line. A line can be thought of as a collection of infinitely close points. The equation for a line tells you which points are on the line. We can refer to the entire line on the graph above as `y = x`. 
 
-If we know the equation for the line, we can work out which points are on the line by taking any value of x and, using the equation, work out the y coordinate for that value of x.
+If we know the equation for the line, we can work out which points are on the line by taking any value of x and, using the equation, work out the y coordinate for that value of x. The point `(x = 5, y = 5)` is on the line `y = x` because the value of x and y are the same at `(x = 5, y = 5)`.
 
 The table below shows the x and y coordinates for some of the points on the line ```y = x```. As you can see, whatever x equals, y equals the same number.
 
@@ -114,36 +137,27 @@ What happens if we change that '1' in ```y = 1 * x``` to another number? Let's c
 ```{python}
 # do not worry about any of the code in this notebook, it is just here to generate the graphs
 y1 = 5*x
-plt.figure(figsize = (8,8))
+axes_func(8,8,-10,11)
 plt.plot(x,y, color = 'red', label = 'y = 1 * x')
 plt.plot(x,y1, color = 'blue', label = 'y = 5 * x')
-plt.plot(x_axis, np.repeat(0, len(x_axis)), color = 'black')
-plt.plot(np.repeat(0, len(y_axis)), y_axis, color = 'black')
-plt.xlabel('X Axis')
-plt.ylabel('Y Axis')
-plt.ylim(min(y_axis), max(y_axis))
-plt.xticks(np.arange(np.min(x_axis), np.max(x_axis)+1, 1))
-plt.yticks(np.arange(np.min(y_axis), np.max(y_axis)+1, 1))
-plt.plot(0,0, 'o', color = 'black', markersize = 8, label = 'The Origin (x = 0, y = 0)')
-plt.legend()
-plt.show()
+plt.legend();
 ```
 
-The number we have changed -  from '1' to '5' - is the <b> slope </b>. Graphically, we can see that changing the slope changes the steepness of the line : the line for ```y = 5 * x``` is much steeper than the line for ```y = 1 * x```.
+The number we have changed -  from '1' to '5' - is the <b> slope </b>. Graphically, we can see that changing the slope changes the steepness of the line: the line for ```y = 5 * x``` is much steeper than the line for ```y = 1 * x```.
 
 What the slope tells us is this: for the x-coordinate of any point on the line, how much bigger/smaller is the y coordinate?
 
 In the case of ```y = 1  * x```: 
 
-where x = 1, y equals 1 times the value of x ... so y = 1,
+where `x = 1`, `y` equals 1 times the value of `x` ... so `y = 1`,
 
-where x = 5, y equals 1 times the value of x ... so y = 5 etc.
+where `x = 5`, `y` equals 1 times the value of `x` ... so `y = 5` etc.
 
-In the case of ```y = 5 * x```, y equals 5 times the value of x. So: 
+In the case of ```y = 5 * x```, `y` equals 5 times the value of `x`. So: 
 
-where x = 1, y equals 5 times the value of x ... so y = 5,
+where `x = 1`, `y` equals 5 times the value of `x` ... so `y = 5`,
 
-where x = 5, y equals 5 times the value of x... so y = 25 etc.
+where `x = 5`, `y` equals 5 times the value of `x`... so `y = 25` etc.
 
 The table below shows this for a set of points on the line ```y = 5 * x```:
 
@@ -155,7 +169,10 @@ display(df)
 
 Another way of thinking of this is: if we take any two points on the line, and we calculate how much the x-value has changed between those points, then the slope tells us how much the y value has also changed.
 
-So for the line ```y = 1 * x```, if we follow the line from x = 0 to x = 5, the slope tells us how much the y values have changed over this distance. 
+So for the line ```y = 1 * x```, if we follow the line from `x = 0` to `x = 5`, the slope tells us how much the y values have changed over this distance. One way of thinking of this is that the slope is the 'rise' (the change in y values along the line) dividied by the 'run' (the change in the x values along the line):
+
+<center> <br>$ \Large \text{slope} = \frac{\text{change in y}}{\text{change in x}} = \frac{\text{rise}}{\text{run}} $ <center>
+<br>
 
 The graph below shows that, for the line ```y = 1 * x```, as x changes from 0 to 5, y also changes from 0 to 5.
 
@@ -163,60 +180,38 @@ The graph below shows that, for the line ```y = 1 * x```, as x changes from 0 to
 
 ```{python}
 # do not worry about any of the code in this notebook, it is just here to generate the graphs
-plt.figure(figsize = (8,8))
-y_axis_ext = np.arange(-30, 31)
-x_axis_ext = np.arange(-30, 31)
-plt.plot(x_axis_ext , np.repeat(0, len(x_axis_ext)), color = 'black')
-plt.plot(np.repeat(0, len(y_axis_ext)), y_axis_ext, color = 'black')
-plt.plot(x,y, color = 'red', label = 'y = 1 * x')
+axes_func(8,8,-30,31, five_ticks = True)
+x_long = np.arange(-30,31)
+y = 1 * x_long
+plt.plot(x_long, y, color = 'red', label = 'y = 1 * x')
 plt.plot([5, 0, 5], [5,5, 0], 'x', color = 'black')
 zer_5 = np.arange(0,6)
 plt.plot(np.repeat(5, len(zer_5)), zer_5, '--', color = 'darkgreen', label = 'Change in y')
 plt.plot(zer_5, np.repeat(5, len(zer_5)),'--', color = 'cyan', label = 'Change in x')
-plt.xlabel('X Axis')
-plt.ylabel('Y Axis')
-plt.ylim(min(y_axis_ext), max(y_axis_ext))
-plt.xlim(min(x_axis_ext), max(x_axis_ext))
-plt.xticks(np.arange(np.min(x_axis_ext), np.max(x_axis_ext)+1, 5))
-plt.yticks(np.arange(np.min(y_axis_ext), np.max(y_axis_ext)+1, 5))
-plt.plot(0,0, 'o', color = 'black', markersize = 8, label = 'The Origin (x = 0, y = 0)')
-plt.legend()
-plt.show()
+plt.legend();
 ```
 
 The graph below shows the same change in x (from 0 to 5) for the line ```y = 5 * x```.
 
 ```{python}
 # do not worry about any of the code in this notebook, it is just here to generate the graphs
-plt.figure(figsize = (8,8))
-plt.plot(x_axis_ext , np.repeat(0, len(x_axis_ext)), color = 'black')
-plt.plot(np.repeat(0, len(y_axis_ext)), y_axis_ext, color = 'black')
+axes_func(8,8,-30,31, five_ticks = True)
 plt.plot([5, 0, 5], [25,25, 0], 'x', color = 'black')
-plt.plot(x,y, color = 'red', label = 'y = 1 * x')
+plt.plot(x_long,y, color = 'red', label = 'y = 1 * x')
 plt.plot(x,y1, color = 'blue', label = 'y = 5 * x')
 zer_25 = np.arange(0,26)
 plt.plot(np.repeat(5, len(zer_25)), zer_25, '--', color = 'darkgreen', label = 'Change in y')
 plt.plot(zer_5, np.repeat(25, len(zer_5)),'--', color = 'cyan', label = 'Change in x')
-plt.xlabel('X Axis')
-plt.ylabel('Y Axis')
-plt.ylim(min(y_axis_ext), max(y_axis_ext))
-plt.xlim(min(x_axis_ext), max(x_axis_ext))
-plt.xticks(np.arange(np.min(x_axis_ext), np.max(x_axis_ext)+1, 5))
-plt.yticks(np.arange(np.min(y_axis_ext), np.max(y_axis_ext)+1, 5))
-plt.plot(0,0, 'o', color = 'black', markersize = 8, label = 'The Origin (x = 0, y = 0)')
-plt.legend()
-plt.show()
+plt.legend();
 ```
 
 If you compare the two graphs, you can see that, relative to the line ```y = 1 * x```, on the line ```y = 5 * x``` the value of y has changed a lot more for the same 5 point increase in x. It has changed by 5 times the amount. This may be clearer in the graph below:
 
 ```{python}
 # do not worry about any of the code in this notebook, it is just here to generate the graphs
-plt.figure(figsize = (8,8))
-plt.plot(x,y, color = 'red', label = 'y = 1 * x')
+axes_func(8,8,-30,31, five_ticks = True)
+plt.plot(x_long,y, color = 'red', label = 'y = 1 * x')
 plt.plot(x,y1, color = 'blue', label = 'y = 5 * x')
-plt.plot(x_axis_ext , np.repeat(0, len(x_axis_ext)), color = 'black')
-plt.plot(np.repeat(0, len(y_axis_ext)), y_axis_ext, color = 'black')
 plt.plot([5, 0, 5], [25,25, 0], 'x', color = 'black')
 plt.plot([5, 0, 5], [5,5, 0], 'x', color = 'black')
 zer_25 = np.arange(0,26)
@@ -224,15 +219,7 @@ plt.plot(np.repeat(5, len(zer_25)), zer_25, '--', color = 'darkgreen', label = '
 plt.plot(zer_5, np.repeat(25, len(zer_5)),'--', color = 'cyan', label = 'Change in x')
 plt.plot(np.repeat(5, len(zer_5)), zer_5, '--', color = 'darkgreen')
 plt.plot(zer_5, np.repeat(5, len(zer_5)),'--', color = 'cyan')
-plt.xlabel('X Axis')
-plt.ylabel('Y Axis')
-plt.ylim(min(y_axis_ext), max(y_axis_ext))
-plt.xlim(min(x_axis_ext), max(x_axis_ext))
-plt.xticks(np.arange(np.min(x_axis_ext), np.max(x_axis_ext)+1, 5))
-plt.yticks(np.arange(np.min(y_axis_ext), np.max(y_axis_ext)+1, 5))
-plt.plot(0,0, 'o', color = 'black', markersize = 8, label = 'The Origin (x = 0, y = 0)')
-plt.legend()
-plt.show()
+plt.legend();
 ```
 
 The change in x is the same for each line, but the change in y is much larger for the line with the larger slope, ```y = 5 * x```.
@@ -246,20 +233,11 @@ What would the graph look like if we change the slope of the line to 10, instead
 ```{python}
 # do not worry about any of the code in this notebook, it is just here to generate the graphs
 y2 = 10*x
-plt.figure(figsize = (8,8))
-plt.plot(x,y, color = 'red', label = 'y = 1 * x')
+axes_func(8,8,-30,31, five_ticks = True)
+plt.plot(x_long,y, color = 'red', label = 'y = 1 * x')
 plt.plot(x,y1, color = 'blue', label = 'y = 5 * x')
 plt.plot(x,y2, color = 'green', label = 'y = 10 * x')
-plt.plot(x_axis, np.repeat(0, len(x_axis)), color = 'black')
-plt.plot(np.repeat(0, len(y_axis_ext)), y_axis_ext, color = 'black')
-plt.xlabel('X Axis')
-plt.ylabel('Y Axis')
-plt.ylim(min(y_axis_ext), max(y_axis_ext))
-plt.xticks(np.arange(np.min(x_axis), np.max(x_axis)+1, 1))
-plt.yticks(np.arange(np.min(y_axis_ext), np.max(y_axis_ext)+1, 5))
-plt.plot(0,0, 'o', color = 'black', markersize = 8, label = 'The Origin (x = 0, y = 0)')
-plt.legend()
-plt.show()
+plt.legend();
 ```
 
 As you can see, the take-home message is that if we increase the slope, the line gets steeper.
@@ -273,19 +251,10 @@ Let's try making the slope -5. The line for ```y = -5 * x``` is shown below, as 
 ```{python}
 # do not worry about any of the code in this notebook, it is just here to generate the graphs
 y3 = -5 * x
-plt.figure(figsize = (8,8))
+axes_func(8,8,-10,11)
 plt.plot(x,y1, color = 'blue', label = 'y = 5 * x')
 plt.plot(x, y3, '--', color = 'darkblue', label = 'y = -5 * x')
-plt.plot(x_axis, np.repeat(0, len(x_axis)), color = 'black')
-plt.plot(np.repeat(0, len(y_axis)), y_axis, color = 'black')
-plt.xlabel('X Axis')
-plt.ylabel('Y Axis')
-plt.plot(0,0, 'o', color = 'black', markersize = 8, label = 'The Origin (x = 0, y = 0)')
-plt.ylim(min(y_axis), max(y_axis))
-plt.xticks(np.arange(np.min(x_axis), np.max(x_axis)+1, 1))
-plt.yticks(np.arange(np.min(y_axis), np.max(y_axis)+1, 1))
-plt.legend()
-plt.show()
+plt.legend();
 ```
 
 As you can see, the lines are equally steep. However, for the line with the negative slope, when the x values are negative, the y values are positive. And when the x values are positive, the y values are negative. 
@@ -296,30 +265,21 @@ The graph below shows multiple lines, so that you can see the relationship betwe
 
 ```{python}
 # do not worry about any of the code in this notebook, it is just here to generate the graphs
-y4 = -x
+y4 = -x_long
 y6 = -10 *x
-plt.figure(figsize = (8,8))
-plt.plot(x,y, color = 'red', label = 'y = 1 * x')
+axes_func(8,8,-10,11) 
+plt.plot(x_long,y, color = 'red', label = 'y = 1 * x')
 plt.plot(x,y2, color = 'green', label = 'y = 10 * x')
-plt.plot(x,y4, '--', color = 'darkred', label = 'y = -1 * x')
+plt.plot(x_long,y4, '--', color = 'darkred', label = 'y = -1 * x')
 plt.plot(x, y6,'--',  color = 'darkgreen', label = 'y = -10 * x')
-plt.plot(0,0, 'o', color = 'black', markersize = 8, label = 'The Origin (x = 0, y = 0)')
-plt.xlabel('X Axis')
-plt.ylabel('Y Axis')
-plt.plot(x_axis, np.repeat(0, len(x_axis)), color = 'black')
-plt.plot(np.repeat(0, len(y_axis)), y_axis, color = 'black')
-plt.ylim(min(y_axis), max(y_axis))
-plt.xticks(np.arange(np.min(x_axis), np.max(x_axis)+1, 1))
-plt.yticks(np.arange(np.min(y_axis), np.max(y_axis)+1, 1))
-plt.legend()
-plt.show()
+plt.legend();
 ```
 
 # What is an intercept?
 
-Look at the graph above. Despite having different sizes of slope, with different signs, all of the lines pass through the origin at (x = 0, y = 0).
+Look at the graph above. Despite having different sizes of slope, with different signs, all of the lines pass through the origin at `(x = 0, y = 0)`.
 
-The <b>intercept</b> is the term for where a line crosses the y axis. The intercept for all the lines in the above graph is 0, as they all cross the y axis where y = 0. 
+The <b>intercept</b> is the term for where a line crosses the y axis. The intercept for all the lines in the above graph is 0, as they all cross the y axis where `y = 0`. 
 
 We can change the intercept of a line by adding or subtracting a quantity in the equation for the line. This has the effect of adding or subtracting that quantity from every point on the line. This is easier to illustrate graphically.
 
@@ -327,30 +287,21 @@ The graph below shows two lines. One we have seen before, ```y = 1 * x``` (shown
 
 ```{python}
 # do not worry about any of the code in this notebook, it is just here to generate the graphs
-y1 = x
-y2 = x + 5
-plt.figure(figsize = (8,8))
-plt.plot(x,y1, color = 'blue', label = 'y = 1 * x')
-plt.plot(x,y2, color = 'gold', label = 'y = 1 * x + 5')
-plt.plot(x_axis, np.repeat(0, len(x_axis)), color = 'black')
-plt.plot(np.repeat(0, len(y_axis)), y_axis, color = 'black')
-plt.xlabel('X Axis')
-plt.ylabel('Y Axis')
-plt.plot(0,0, 'o', color = 'black', markersize = 8, label = 'The Origin (x = 0, y = 0)')
-plt.ylim(min(y_axis), max(y_axis))
-plt.xticks(np.arange(np.min(x_axis), np.max(x_axis)+1, 1))
-plt.yticks(np.arange(np.min(y_axis), np.max(y_axis)+1, 1))
-plt.legend()
-plt.show()
+y1 = x_long
+y2 = x_long + 5
+axes_func(8,8,-10, 11)
+plt.plot(x_long,y1, color = 'blue', label = 'y = 1 * x')
+plt.plot(x_long,y2, color = 'gold', label = 'y = 1 * x + 5')
+plt.legend();
 ```
 
 We can see that the new line, ```y = 1 * x + 5```, crosses the y axis at 5, but the steepness of the line is the same as ```y = 1 * x``` - it is only the point that each line crosses the y axis that is different.
 
 For any value of x on the line ```y = 1 * x + 5```, the y value equals 1 times the x value, plus the intercept, which in this case is 5. 
 
-So if x = 0, y equals 1 times the value of x, plus the intercept: so y = 0 + 5 = 5. 
+So if `x = 0`, y equals 1 times the value of x, plus the intercept: so `y = 0 + 5 = 5`. 
 
-If x = 2, y equals 1 times the value of x, plus the intercept: so y = 2 + 5 = 7 etc.
+If `x = 2`, y equals 1 times the value of x, plus the intercept: so `y = 2 + 5 = 7` etc.
 
 That's all there is to it. Adding or subtracting an intercept from a line simply moves the line up and down the y axis. If the rest of the equation is the same, that is all that changes. This is true regardless of what the slope is:
 
@@ -358,18 +309,10 @@ That's all there is to it. Adding or subtracting an intercept from a line simply
 # do not worry about any of the code in this notebook, it is just here to generate the graphs
 y1 = 10 * x
 y2 = 10 * x + 5
-plt.figure(figsize = (8,8))
+axes_func(8,8,-10, 11, double_y = True, five_ticks_y = True)
 plt.plot(x,y1, color = 'blue', label = 'y = 10 * x')
 plt.plot(x,y2, color = 'gold', label = 'y = 10 * x + 5')
-y_axis = np.arange(-20, 21)
-plt.plot(x_axis, np.repeat(0, len(x_axis)), color = 'black')
-plt.plot(np.repeat(0, len(y_axis)), y_axis, color = 'black')
-plt.xlabel('X Axis')
-plt.ylabel('Y Axis')
-plt.plot(0,0, 'o', color = 'black', markersize = 8, label = 'The Origin (x = 0, y = 0)')
-plt.ylim(min(y_axis), max(y_axis))
-plt.legend()
-plt.show()
+plt.legend();
 ```
 
 Let's see what happens if we set the intercept to -5, rather than postive 5:
@@ -379,18 +322,11 @@ Let's see what happens if we set the intercept to -5, rather than postive 5:
 y1 = 5 * x
 y2 = 5 *  x + 5
 y3 = 5 *  x - 5
-plt.figure(figsize = (8,8))
+axes_func(8,8,-10, 11, double_y = True, five_ticks_y = True)
 plt.plot(x,y1, color = 'orange', label = 'y =  5 * x')
 plt.plot(x,y2, color = 'crimson', label = 'y = 5 * x + 5')
 plt.plot(x,y3, color = 'darkred', label = 'y = 5 * x - 5')
-plt.plot(x_axis, np.repeat(0, len(x_axis)), color = 'black')
-plt.plot(np.repeat(0, len(y_axis)), y_axis, color = 'black')
-plt.xlabel('X Axis')
-plt.ylabel('Y Axis')
-plt.plot(0,0, 'o', color = 'black', markersize = 8, label = 'The Origin (x = 0, y = 0)')
-plt.ylim(min(y_axis), max(y_axis))
-plt.legend()
-plt.show()
+plt.legend();
 ```
 
 You can see that a negative intercept moves the line downwards away from the origin. 
@@ -404,18 +340,11 @@ This is also true if the slope is negative, as can be seen from the graph below:
 y1 = -5 * x
 y2 = -5 *  x + 5
 y3= -5 *  x - 5
-plt.figure(figsize = (8,8))
+axes_func(8,8,-10, 11, double_y = True, five_ticks_y = True)
 plt.plot(x,y1,'--', color = 'darkblue',  label = 'y =  -5 * x')
 plt.plot(x,y2,'--', color = 'silver',  label = 'y = -5 * x + 5')
 plt.plot(x,y3, '--',color = 'darkred',  label = 'y = -5 * x - 5')
-plt.plot(x_axis, np.repeat(0, len(x_axis)), color = 'black')
-plt.plot(np.repeat(0, len(y_axis)), y_axis, color = 'black')
-plt.xlabel('X Axis')
-plt.ylabel('Y Axis')
-plt.plot(0,0, 'o', color = 'black', markersize = 8, label = 'The Origin (x = 0, y = 0)')
-plt.ylim(min(y_axis), max(y_axis))
-plt.legend()
-plt.show()
+plt.legend();
 ```
 
 ### In summary: the slope determines the steepness of the line. The intercept moves the line up and down the y axis, relative to the origin.
@@ -423,78 +352,87 @@ plt.show()
 
 # Why do we care?
 
-Fitting a line to a set of datapoints can be used for description and prediction.
+We should care about the equations for lines, because fitting a line to a set of datapoints can be used for description and prediction. 'Fitting' in this sense means finding the values of the equation for a line which best captures the pattern in our data.
 
-The graph below shows some simulated data, where each point represents one person with a disease. 
-
-The x-coordinate of the point shows that person's pre-treatment symptom severity score (out of 100). And the y-coordinate of the point shows the dose of a drug (in micrograms) that was most effective for treating that person:
+The dataframe below shows some data from the [students ratings dataset](../data/rate_my_professors):
 
 ```{python}
-# do not worry about any of the code in this notebook, it is just here to generate the graphs
-samp_size = 30
-symptom_severity = np.random.normal(67, 10,  size = samp_size).astype('int')
-symptom_severity[symptom_severity > 100] = 100
-most_effect_dose = 50 + 1.4 * symptom_severity + np.random.normal(0, 5, size = samp_size)
-plt.figure(figsize = (10,6))
-plt.scatter(symptom_severity, most_effect_dose)
-plt.xlabel('Symptom Severity')
-plt.ylabel('Most Effective Dose')
-plt.show()
+ratings = pd.read_csv('https://raw.githubusercontent.com/matthew-brett/cfd2020/master/data/rate_my_course.csv')
+ratings = ratings[['Discipline', 'Clarity', 'Overall Quality']]
+ratings.head(10)
 ```
 
-We can fit a line to this data by using mathematical techniques which find the equation for the line which minimizes the collective distance between the datapoints and the line.
+The scatterplot below shows the `Clarity` ratings and the `Overall Quality` ratings for each course (the course names are shown in the `Discipline` column of the dataframe above).
 
-Fitting a line can help us describe the strength and direction of the relationship between initial symptom severity and the most effective dose:
+Each point on the graph shows both ratings for one course. The x-coordinate of the point shows that course's `Clarity` rating, and the y-coordinate shows the `Overall Quality` rating:
 
 ```{python}
 # do not worry about any of the code in this notebook, it is just here to generate the graphs
-lin_reg = scipy.stats.linregress(symptom_severity, most_effect_dose)
+clarity = ratings['Clarity'].copy()
+quality = ratings['Overall Quality'].copy()
+plt.figure(figsize = (8,8))
+plt.scatter(clarity, quality, label = 'Clarity (x) and Overall Quality (y) ratings')
+plt.xlabel('Calrity Rating')
+plt.ylabel('Overall Quality Rating')
+plt.legend();
+```
+
+We can fit a line to this data by using mathematical or computational techniques which find the equation for the line which best captures the trend in the datapoints (this is done by finding a line which minimizes the vertical distance between the darapoints and the line - we will go into more detail on these techniques [elsewhere](finding_lines)).
+
+Fitting a line can help us describe the strength and direction of the relationship between `Clarity` and `Overall Quality`:
+
+```{python}
+# do not worry about any of the code in this notebook, it is just here to generate the graphs
+lin_reg = scipy.stats.linregress(clarity, quality)
 slope = lin_reg[0]
 intercept = lin_reg[1]
-ols_line = intercept  + slope * symptom_severity
-plt.figure(figsize = (10,6))
-plt.scatter(symptom_severity, most_effect_dose)
-plt.xlabel('Symptom Severity')
-plt.ylabel('Most Effective Dose')
-plt.plot(symptom_severity, ols_line, color = 'darkred', label = 'Best-fitting straight line:  y = '+str(np.round(slope,2))+' * x + '+str(np.round(intercept, 2)))
-plt.legend()
-plt.show()
-print('The equation for the best-fitting straight line is:')
-print('\ny = ', np.round(slope,2), '* x + ', np.round(intercept, 2))
-print('\n(Remember that in this case "x" is the symptom severity score!)\n')
-print(np.round(slope,2), 'is the slope.')
-print(np.round(intercept,2), 'is the intercept.')
+ols_line = intercept  + slope * clarity
+plt.figure(figsize = (8,8))
+plt.xlabel('Clarity Rating')
+plt.ylabel('Overall Quality Rating')
+plt.scatter(clarity, quality, label = 'Clarity (x) and Overall Quality (y) ratings')
+plt.plot(clarity, ols_line, color = 'darkred', label = 'Best-fitting straight line:  y = '+str(np.round(slope,2))+' * x + '+str(np.round(intercept, 2)))
+plt.legend();
 ```
+
+The equation for the best-fitting straight line is:
+
+$y =  0.92 * x +  0.32$
+
+(Remember that in this case "x" is the `Clarity` rating!)
+
+0.92 is the slope.<br>
+0.32 is the intercept.
 
 The steeper the slope of the best fitting line, the stronger the relationship between the two variables. The intercept is important too, we will explain why shortly.
 
 Once we have fitted a line, we can use it to predict things.
 
-In this hypothetical example, if we had a new patient, we could use their initial symptom severity score to predict which dose will be most effective for them, based on what we have observed in the previous patients.
+Let's say a new course is piloted at a university. Let's say we have data on it's `Clarity` ratings, but have not yet collected data on its `Overall Quality`.
 
-It is important to have good predictions in this case: if the dose is too low, the treatment will be ineffective. If the dose is too high, there will be more side effects.
+We could use the `Clarity` score to predict the `Overall Quality` rating for that course, based on the relationship between `Clarity` and `Overall Quality` in the ratings data we already have.
 
-The graph below shows how we would use an initial symptom severity score (for instance, of 70) to predict the most effective dose for that patient. We would do this by checking what the y coordinate is for the point on the line where x = 70:
+Let's say the `Clarity` rating of the new course is 3.6. The graph below shows how we would use this `Clarity` score to predict the `Overall Quality` score that the course would get. We would generate this prediction by checking what the y coordinate is for the point on the line where `x = 3.6`:
 
 ```{python}
 # do not worry about any of the code in this notebook, it is just here to generate the graphs
-predict_70 = intercept + slope * 70
-plt.figure(figsize = (10,6))
-plt.scatter(symptom_severity, most_effect_dose)
-plt.xlabel('Symptom Severity')
-plt.ylabel('Most Effective Dose')
-plt.plot(symptom_severity, ols_line, color = 'darkred', label = 'Best-fitting straight line:  y = '+str(np.round(slope,2))+' * x + '+str(np.round(intercept, 2)))
-plt.plot(70, predict_70, 'X', markersize = 15, color = 'red', label = 'Predicted best dose for symptom severity = 70' )
-plt.yticks(np.arange(np.min(most_effect_dose).astype('int'), np.max(most_effect_dose)+1, 5))
-plt.legend()
-plt.show()
-print('In this example, the predicted most effective dose (for a symptom severity score of 70) is '+str(np.round(predict_70,2))+', as this is the y-coordinate for the point on the line where x = 70.')
-print('\nLook at the y-axis level with the red "x" to see that this is correct.')
+predict = intercept + slope * 3.6
+plt.figure(figsize = (8,8))
+plt.xlabel('Clarity Rating')
+plt.ylabel('Overall Quality Rating')
+plt.scatter(clarity, quality, label = 'Clarity (x) and Overall Quality (y) ratings')
+plt.plot(clarity, ols_line, color = 'darkred', label = 'Best-fitting straight line:  y = '+str(np.round(slope,2))+' * x + '+str(np.round(intercept, 2)))
+plt.plot(3.6, predict, 'X', markersize = 15, color = 'red', label = 'Predicted "Overall Quality" rating for "Clarity == 3.6"' )
+plt.legend(bbox_to_anchor = (1,1));
 ```
 
-The graph below shows the same prediction, but also shows the origin.
+<!-- #region -->
+In this example, the predicted `Overall Quality` rating for `Clarity` rating of 3.6 is 3.635, as this is the y-coordinate for the point on the line where `x = 3.6`.
 
-Remember that all lines pass through the origin if they do not have a nonzero intercept (i.e. an intercept that is any other number apart from 0). 
+Look at the y-axis level with the red "x" to see that this is correct.
+
+
+Remember that all lines pass through the origin if they do not have a nonzero intercept (i.e. an intercept that is any other number apart from 0, in the case of the scatterplot above the intercept is 0.32). 
 
 So, we need a nonzero intercept - that is, we need to add or subtract a quantity from every value on the line - if the line which best fits the data does not pass through the origin. 
 
@@ -503,31 +441,42 @@ In our current example, without the nonzero intercept, our line would not pass t
 With an intercept of 0, the line would have the correct slope, but it would be too low down the y axis to make useful predictions. 
 
 The graph below shows a green line which has the same slope as the best fitting line, but has an intercept of 0. You can see that it does not fit the data well at all. If we use that line to make predictions, they would be very inaccurate.
+<!-- #endregion -->
+
+```{python}
+bad_line = slope*clarity
+bad_predict = 3.6 * slope
+plt.figure(figsize = (8,8))
+plt.xlabel('Clarity Rating')
+plt.ylabel('Overall Quality Rating')
+plt.scatter(clarity, quality, label = 'Clarity (x) and Overall Quality (y) ratings')
+plt.plot(clarity, ols_line, color = 'darkred', label = 'Best-fitting straight line:  y = '+str(np.round(slope,2))+' * x + '+str(np.round(intercept, 2)))
+plt.plot(clarity, bad_line,  color = 'green', label = 'Line with the correct slope, but a 0 intercept: y = '+str(np.round(slope,2))+' * x + 0')
+plt.plot(3.6, predict, 'X', markersize = 15, color = 'red', label = 'Predicted "Overall Quality" rating for "Clarity == 3.6"' )
+plt.plot(3.6, bad_predict, 'X', markersize = 15, color = 'red', )
+plt.legend(bbox_to_anchor = (1,1));
+```
+
+Let's plot the `Clarity` ratings, the `Overall Quality` ratings, the best-fitting line, and the line with the incorrect intercept on a graph which also shows the origin, to see more clearly how they relate to the lines we plotted earlier:
 
 ```{python}
 # do not worry about any of the code in this notebook, it is just here to generate the graphs
-predict_70 = intercept + slope * 70
-bad_line = slope*symptom_severity
-plt.figure(figsize = (14,10))
-plt.scatter(symptom_severity, most_effect_dose)
-plt.xlabel('Symptom Severity')
-plt.ylabel('Most Effective Dose')
-plt.plot(symptom_severity, ols_line, color = 'darkred', label = 'Best-fitting straight line:  y = '+str(np.round(slope,2))+' * x + '+str(np.round(intercept, 2)))
-plt.plot(symptom_severity, bad_line,  color = 'green', label = 'Line with the correct slope, but a 0 intercept: y = '+str(np.round(slope,2))+' * x + 0')
-plt.plot(70, predict_70, 'X', markersize = 15, color = 'red', label = 'Predicted best dose, for symptom severity = 70' )
-y_axis = np.arange(-np.max(most_effect_dose), np.max(most_effect_dose))
-x_axis = np.arange(-np.max(symptom_severity), np.max(symptom_severity))
-plt.plot(0,0, 'o', color = 'black', markersize = 8, label = 'The Origin (x = 0, y = 0)')
-plt.plot(x_axis, np.repeat(0, len(x_axis)), color = 'black')
-plt.plot(np.repeat(0, len(y_axis)), y_axis, color = 'black')
-zer_to_pred = np.arange(0,predict_70)
-zer_to_70 = np.arange(0,70)
-plt.plot(np.repeat(70, len(zer_to_pred)), zer_to_pred, '--', color = 'darkred')
-plt.plot(zer_to_70, np.repeat(predict_70, len(zer_to_70)),'--', color = 'darkred')
-plt.legend()
-plt.show()
-
+x_points = np.linspace(-5, 5)
+good_line = intercept + slope * x_points
+bad_line = slope * x_points
+axes_func(10,10, -4.5, 5)
+plt.xlabel('Clarity Rating')
+plt.ylabel('Overall Quality Rating')
+plt.scatter(clarity, quality, label = 'Clarity (x) and Overall Quality (y) ratings')
+plt.plot(x_points, good_line, color = 'darkred', label = 'Best-fitting straight line:  y = '+str(np.round(slope,2))+' * x + '+str(np.round(intercept, 2)))
+plt.plot(x_points, bad_line,  color = 'green', label = 'Line with the correct slope, but a 0 intercept: y = '+str(np.round(slope,2))+' * x + 0')
+plt.legend(bbox_to_anchor = (1.03,1));
 ```
+
+You can see that the line with the (incorrect) 0 intercept passes through the origin, and is too low down the y axis to pass through any of the datapoints (shown in blue).
+
+The best fitting line does not pass through the origin; it crosses the y axis at `y = 0.32`. As a result, it captures the pattern in the datapoints much better, and therefore is more useful for making predictions based on the pattern in the data.
+
 
 # Try it yourself
 
@@ -540,15 +489,9 @@ slope = 1
 
 intercept = 0
 
-
 # do not alter the code below this point
 
-import numpy as np
-import matplotlib.pyplot as plt
-import scipy.stats
-import pandas as pd
-
-plt.figure(figsize = (14,10))
+plt.figure(figsize = (8,8))
 x = np.arange(-10, 11)
 y = slope * x + intercept
 plt.plot(x, y, label = 'y = '+str(slope)+' * x + '+str(intercept))
